@@ -1,0 +1,169 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/*
+  Token semantik dua tema. Semua komponen memakai var(--vf-*) sehingga
+  pergantian dark/light tidak pernah menghasilkan teks tak terlihat
+  (test case 8 pada master prompt).
+*/
+:root,
+.light {
+  --vf-bg: #f7f8fb;
+  --vf-bg-elevated: #ffffff;
+  --vf-surface: #ffffff;
+  --vf-surface-muted: #f1f4f9;
+  --vf-border: #dde3ec;
+  --vf-border-strong: #c3cddb;
+  --vf-text: #101828;
+  --vf-text-secondary: #475467;
+  --vf-text-muted: #667085;
+  --vf-primary: #0b63c5;
+  --vf-primary-text: #08509f;
+  --vf-accent: #5b4bd6;
+  --vf-fact: #04785d;
+  --vf-partly: #9a5b00;
+  --vf-misleading: #a1500a;
+  --vf-hoax: #bb2036;
+  --vf-unproven: #4a5568;
+  --vf-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px -12px rgba(16, 24, 40, 0.14);
+  --vf-ring: rgba(11, 99, 197, 0.18);
+}
+
+.dark {
+  --vf-bg: #070b14;
+  --vf-bg-elevated: #0d1424;
+  --vf-surface: #101a2c;
+  --vf-surface-muted: #16233a;
+  --vf-border: #22304a;
+  --vf-border-strong: #33456b;
+  --vf-text: #f2f6fc;
+  --vf-text-secondary: #b3c0d4;
+  --vf-text-muted: #8697b0;
+  --vf-primary: #3aa3f5;
+  --vf-primary-text: #7cc4fb;
+  --vf-accent: #9b8cfb;
+  --vf-fact: #34d399;
+  --vf-partly: #fbbf24;
+  --vf-misleading: #fb923c;
+  --vf-hoax: #f87171;
+  --vf-unproven: #a3b1c6;
+  --vf-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -20px rgba(0, 0, 0, 0.7);
+  --vf-ring: rgba(58, 163, 245, 0.22);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  background-color: var(--vf-bg);
+  color: var(--vf-text);
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--vf-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Animasi ringan: hanya transform + opacity agar tidak memicu layout thrashing. */
+@keyframes vfFadeUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes vfPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes vfSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vf-fade-up {
+  animation: vfFadeUp 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.vf-pulse {
+  animation: vfPulse 1.4s ease-in-out infinite;
+}
+
+.vf-spin {
+  animation: vfSpin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vf-fade-up,
+  .vf-pulse,
+  .vf-spin {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vf-border-strong);
+  border-radius: 8px;
+  border: 2px solid var(--vf-bg);
+}
+
+.vf-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vf-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.vf-break {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
