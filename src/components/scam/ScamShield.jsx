@@ -1,13 +1,17 @@
 /**
  * ScamShield.jsx
  *
- * Modul pemeriksa mandiri sinyal penipuan finansial, kontak nomor telepon,
- * dan indikator URL berbahaya dengan prinsip "absence of evidence ≠ evidence of safety".
+ * VeriFact ID 4.1 — Threat Intelligence Architecture
+ * Pemeriksa mandiri sinyal penipuan finansial, kontak nomor telepon,
+ * dan indikator URL berbahaya dengan prinsip:
+ * - "absence of evidence ≠ evidence of safety" ("Tidak ditemukan laporan" ≠ "AMAN")
+ * - "HTTPS ≠ AMAN" (enkripsi transmisi bukan jaminan integritas situs)
+ * - Transparansi sumber intelijen dan laporan aktif
  */
 
 import React, { useState } from 'react';
-import { CreditCardIcon, PhoneIcon, LinkIcon, AlertTriangleIcon, ExternalLinkIcon, ShieldIcon } from '../common/Icons.jsx';
-import { analyzeAccountNumber, analyzePhoneNumber, analyzeUrl } from '../../data/scamPatterns.js';
+import { CreditCardIcon, PhoneIcon, LinkIcon, AlertTriangleIcon, ExternalLinkIcon, ShieldIcon, CheckIcon } from '../common/Icons.jsx';
+import { analyzeAccountNumber, analyzePhoneNumber, analyzeUrl } from '../../services/threatIntel/ThreatIntelProvider.js';
 import { t } from '../../i18n/index.js';
 
 export function ScamShield({ lang = 'id' }) {
@@ -38,13 +42,59 @@ export function ScamShield({ lang = 'id' }) {
     setUrlResult(analyzeUrl(urlInput));
   };
 
+  const renderStatusBadge = (status, riskLevel) => {
+    switch (status) {
+      case 'CONFIRMED_REPORTED':
+      case 'CONFIRMED_SCAM':
+      case 'MALICIOUS':
+      case 'PHISHING':
+      case 'MALWARE':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-rose-500/20 text-rose-500 border border-rose-500/30 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            {status.replace('_', ' ')}
+          </span>
+        );
+      case 'REPORTED':
+      case 'REPORTED_SCAM':
+      case 'SUSPICIOUS':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-amber-500/20 text-amber-500 border border-amber-500/30 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            {status.replace('_', ' ')}
+          </span>
+        );
+      case 'NO_REPORT_FOUND':
+      case 'NO_THREAT_FOUND':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-sky-500/15 text-sky-400 border border-sky-500/30 flex items-center gap-1.5">
+            <CheckIcon className="w-3.5 h-3.5" />
+            {status.replace('_', ' ')}
+          </span>
+        );
+      case 'LOOKUP_UNAVAILABLE':
+      case 'UNVERIFIED':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-slate-500/20 text-slate-400 border border-slate-500/30">
+            {status.replace('_', ' ')}
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-rose-500/15 text-rose-400 border border-rose-500/30">
+            {status}
+          </span>
+        );
+    }
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6 vf-fade-up">
       {/* Header */}
       <div className="text-center space-y-2">
         <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
           <ShieldIcon className="w-3.5 h-3.5" />
-          <span>{t(lang, 'scamShield.title')}</span>
+          <span>VeriFact ID 4.1 Threat Intelligence</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--vf-text)' }}>
           {t(lang, 'scamShield.title')}
@@ -146,7 +196,7 @@ export function ScamShield({ lang = 'id' }) {
             </form>
 
             {accountResult && (
-              <div className="mt-4 p-4 rounded-xl border space-y-3"
+              <div className="mt-4 p-5 rounded-2xl border space-y-4"
                 style={{
                   backgroundColor: 'var(--vf-surface-muted)',
                   borderColor: 'var(--vf-border)',
@@ -154,34 +204,86 @@ export function ScamShield({ lang = 'id' }) {
               >
                 {accountResult.valid ? (
                   <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--vf-text-muted)' }}>
-                        Hasil Observasi Struktur:
-                      </span>
-                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                        Format Valid ({accountResult.length} Digit)
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style={{ borderColor: 'var(--vf-border)' }}>
                       <div>
-                        <span className="opacity-75 block">{t(lang, 'scamShield.account.bankHint')}</span>
-                        <span className="font-bold text-sm" style={{ color: 'var(--vf-text)' }}>
-                          {accountResult.bankHint || 'Bank Komersial / Umum'}
+                        <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: 'var(--vf-text-muted)' }}>
+                          Hasil Analisis Intelijen Rekening:
+                        </span>
+                        <span className="font-mono text-base font-bold" style={{ color: 'var(--vf-text)' }}>
+                          {accountResult.accountNumber} ({accountResult.bank})
                         </span>
                       </div>
                       <div>
-                        <span className="opacity-75 block">Status Registrasi:</span>
-                        <span className="font-bold text-sm text-blue-500">Siap Diverifikasi Mandiri</span>
+                        {renderStatusBadge(accountResult.status, accountResult.riskLevel)}
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t flex justify-end" style={{ borderColor: 'var(--vf-border)' }}>
+                    {/* Warning / Details Banner */}
+                    <div className={`p-4 rounded-xl text-xs sm:text-sm leading-relaxed border ${
+                      accountResult.status === 'CONFIRMED_REPORTED' || accountResult.status === 'REPORTED'
+                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                        : 'bg-sky-500/10 border-sky-500/30 text-sky-200'
+                    }`}>
+                      <p className="font-semibold mb-1">{accountResult.warningMessage}</p>
+                      {accountResult.details && (
+                        <p className="text-slate-300 text-xs mt-1">{accountResult.details}</p>
+                      )}
+                    </div>
+
+                    {/* Honest Safety Warning */}
+                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs flex items-start gap-2.5">
+                      <AlertTriangleIcon className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                      <div>
+                        <span className="font-bold block text-amber-300">Prinsip Integritas VeriFact:</span>
+                        <p className="mt-0.5 text-slate-300 leading-relaxed">{accountResult.disclaimer}</p>
+                      </div>
+                    </div>
+
+                    {/* Observations & Checked Sources */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-1">
+                      <div className="space-y-1">
+                        <span className="font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--vf-text-muted)' }}>
+                          Observasi Struktural:
+                        </span>
+                        <ul className="list-disc pl-4 space-y-1 text-slate-300">
+                          {accountResult.observations?.map((obs, i) => (
+                            <li key={i}>{obs}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--vf-text-muted)' }}>
+                          Basis Data Diperiksa:
+                        </span>
+                        <div className="space-y-1.5">
+                          {accountResult.sourcesChecked?.map((src, i) => (
+                            <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-black/20 border border-white/5">
+                              <span className="text-slate-300">{src.name}</span>
+                              <span className="text-[10px] font-mono font-bold text-emerald-400">{src.status}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t flex flex-wrap items-center justify-end gap-2" style={{ borderColor: 'var(--vf-border)' }}>
+                      {accountResult.reportUrl && (
+                        <a
+                          href={accountResult.reportUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold border border-rose-500/30 text-rose-400 hover:bg-rose-500/10 flex items-center space-x-1.5 transition-all"
+                        >
+                          <span>Lapor Penipuan</span>
+                          <ExternalLinkIcon className="w-3.5 h-3.5" />
+                        </a>
+                      )}
                       <a
                         href={accountResult.verifyUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-3 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 transition-all shadow-sm"
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 transition-all shadow-sm"
                         style={{ backgroundColor: 'var(--vf-primary)' }}
                       >
                         <span>{t(lang, 'scamShield.account.officialBtn')}</span>
@@ -191,7 +293,7 @@ export function ScamShield({ lang = 'id' }) {
                   </>
                 ) : (
                   <p className="text-xs font-semibold text-rose-500">
-                    Format nomor rekening tidak valid. Pastikan nomor hanya berisi 6 s.d. 20 digit angka.
+                    {accountResult.warningMessage || 'Format nomor rekening tidak valid.'}
                   </p>
                 )}
               </div>
@@ -234,7 +336,7 @@ export function ScamShield({ lang = 'id' }) {
             </form>
 
             {phoneResult && (
-              <div className="mt-4 p-4 rounded-xl border space-y-3"
+              <div className="mt-4 p-5 rounded-2xl border space-y-4"
                 style={{
                   backgroundColor: 'var(--vf-surface-muted)',
                   borderColor: 'var(--vf-border)',
@@ -242,36 +344,87 @@ export function ScamShield({ lang = 'id' }) {
               >
                 {phoneResult.valid ? (
                   <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--vf-text-muted)' }}>
-                        Hasil Observasi Nomor Kontak:
-                      </span>
-                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                        Format Valid ({phoneResult.length} Digit)
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style={{ borderColor: 'var(--vf-border)' }}>
                       <div>
-                        <span className="opacity-75 block">{t(lang, 'scamShield.phone.carrierHint')}</span>
-                        <span className="font-bold text-sm" style={{ color: 'var(--vf-text)' }}>
-                          {phoneResult.carrierHint || 'Operator Seluler Indonesia'}
+                        <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: 'var(--vf-text-muted)' }}>
+                          Hasil Analisis Intelijen Kontak:
+                        </span>
+                        <span className="font-mono text-base font-bold" style={{ color: 'var(--vf-text)' }}>
+                          {phoneResult.formatted || phoneResult.phoneNumber} ({phoneResult.carrier})
                         </span>
                       </div>
                       <div>
-                        <span className="opacity-75 block">Format Standar:</span>
-                        <span className="font-mono font-bold text-sm" style={{ color: 'var(--vf-text)' }}>
-                          {phoneResult.cleaned}
-                        </span>
+                        {renderStatusBadge(phoneResult.status, phoneResult.riskLevel)}
                       </div>
                     </div>
 
-                    <div className="pt-2 border-t flex justify-end" style={{ borderColor: 'var(--vf-border)' }}>
+                    {/* Threat Details Banner */}
+                    <div className={`p-4 rounded-xl text-xs sm:text-sm leading-relaxed border ${
+                      phoneResult.status === 'CONFIRMED_SCAM' || phoneResult.status === 'REPORTED_SCAM'
+                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                        : phoneResult.status === 'SUSPICIOUS'
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                        : 'bg-sky-500/10 border-sky-500/30 text-sky-200'
+                    }`}>
+                      <p className="font-semibold mb-1">{phoneResult.warningMessage}</p>
+                      {phoneResult.details && (
+                        <p className="text-slate-300 text-xs mt-1">{phoneResult.details}</p>
+                      )}
+                      {phoneResult.tags && phoneResult.tags.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {phoneResult.tags.map((tag, i) => (
+                            <span key={i} className="px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Honest Safety Warning */}
+                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs flex items-start gap-2.5">
+                      <AlertTriangleIcon className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                      <div>
+                        <span className="font-bold block text-amber-300">Prinsip Integritas VeriFact:</span>
+                        <p className="mt-0.5 text-slate-300 leading-relaxed">{phoneResult.disclaimer}</p>
+                      </div>
+                    </div>
+
+                    {/* Observations & Checked Sources */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-1">
+                      <div className="space-y-1">
+                        <span className="font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--vf-text-muted)' }}>
+                          Observasi & Tipe Jaringan:
+                        </span>
+                        <ul className="list-disc pl-4 space-y-1 text-slate-300">
+                          <li>Tipe Jalur: <strong className="text-slate-200">{phoneResult.lineType}</strong></li>
+                          {phoneResult.observations?.map((obs, i) => (
+                            <li key={i}>{obs}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--vf-text-muted)' }}>
+                          Basis Data Diperiksa:
+                        </span>
+                        <div className="space-y-1.5">
+                          {phoneResult.sourcesChecked?.map((src, i) => (
+                            <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-black/20 border border-white/5">
+                              <span className="text-slate-300">{src.name}</span>
+                              <span className="text-[10px] font-mono font-bold text-emerald-400">{src.status}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t flex justify-end" style={{ borderColor: 'var(--vf-border)' }}>
                       <a
                         href={phoneResult.verifyUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-3 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 transition-all shadow-sm"
+                        className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 transition-all shadow-sm"
                         style={{ backgroundColor: 'var(--vf-primary)' }}
                       >
                         <span>{t(lang, 'scamShield.phone.officialBtn')}</span>
@@ -281,7 +434,7 @@ export function ScamShield({ lang = 'id' }) {
                   </>
                 ) : (
                   <p className="text-xs font-semibold text-rose-500">
-                    Format nomor telepon tidak valid. Pastikan nomor diawali 08xx atau 628xx dengan 9 s.d. 14 digit angka.
+                    {phoneResult.warningMessage || 'Format nomor telepon tidak valid.'}
                   </p>
                 )}
               </div>
@@ -324,7 +477,7 @@ export function ScamShield({ lang = 'id' }) {
             </form>
 
             {urlResult && (
-              <div className="mt-4 p-4 rounded-xl border space-y-3"
+              <div className="mt-4 p-5 rounded-2xl border space-y-4"
                 style={{
                   backgroundColor: 'var(--vf-surface-muted)',
                   borderColor: 'var(--vf-border)',
@@ -332,33 +485,104 @@ export function ScamShield({ lang = 'id' }) {
               >
                 {urlResult.valid ? (
                   <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--vf-text-muted)' }}>
-                        Hasil Observasi Domain:
-                      </span>
-                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                        {urlResult.domain}
-                      </span>
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style={{ borderColor: 'var(--vf-border)' }}>
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: 'var(--vf-text-muted)' }}>
+                          Hasil Observasi Domain & URL:
+                        </span>
+                        <span className="font-mono text-base font-bold break-all" style={{ color: 'var(--vf-text)' }}>
+                          {urlResult.domain || urlResult.url}
+                        </span>
+                      </div>
+                      <div>
+                        {renderStatusBadge(urlResult.status, urlResult.riskLevel)}
+                      </div>
                     </div>
 
-                    {urlResult.riskIndicators && urlResult.riskIndicators.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {urlResult.riskIndicators.map((ri, i) => (
-                          <div key={i} className="p-2 rounded-lg text-xs bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 flex items-center space-x-2">
-                            <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0" />
-                            <span>Indikator Risiko: {ri.detail}</span>
-                          </div>
-                        ))}
+                    {/* Threat Warning Banner */}
+                    <div className={`p-4 rounded-xl text-xs sm:text-sm leading-relaxed border ${
+                      urlResult.status === 'MALICIOUS' || urlResult.status === 'PHISHING' || urlResult.status === 'MALWARE'
+                        ? 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                        : urlResult.status === 'SUSPICIOUS'
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                        : 'bg-sky-500/10 border-sky-500/30 text-sky-200'
+                    }`}>
+                      <p className="font-semibold mb-1">{urlResult.warningMessage}</p>
+                      {urlResult.impersonatedBrand && (
+                        <p className="text-amber-300 font-bold text-xs mt-1">
+                          ⚠️ Terindikasi meniru identitas resmi: {urlResult.impersonatedBrand}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* SSL / HTTPS Transparency Box */}
+                    {urlResult.sslInfo && (
+                      <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-700/60 text-xs space-y-1">
+                        <div className="flex items-center gap-2 font-bold text-slate-200">
+                          <span>{urlResult.sslInfo.hasHttps ? '🔒' : '🔓'}</span>
+                          <span>{urlResult.sslInfo.hasHttps ? 'HTTPS / SSL Aktif' : 'HTTP Tanpa Enkripsi'}</span>
+                        </div>
+                        <p className="text-slate-400 leading-relaxed text-[11px]">
+                          {urlResult.sslInfo.explanation}
+                        </p>
                       </div>
-                    ) : (
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                        Tidak ditemukan penggunaan pemendek URL atau TLD mencurigakan pada tautan ini.
-                      </p>
+                    )}
+
+                    {/* Honest Absence Warning */}
+                    <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs flex items-start gap-2.5">
+                      <AlertTriangleIcon className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                      <div>
+                        <span className="font-bold block text-amber-300">Prinsip Integritas VeriFact:</span>
+                        <p className="mt-0.5 text-slate-300 leading-relaxed">{urlResult.disclaimer}</p>
+                      </div>
+                    </div>
+
+                    {/* Indicators & Checked Sources */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-1">
+                      <div className="space-y-1">
+                        <span className="font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--vf-text-muted)' }}>
+                          Indikator & Temuan:
+                        </span>
+                        <ul className="list-disc pl-4 space-y-1 text-slate-300">
+                          {urlResult.indicators?.map((ind, i) => (
+                            <li key={i}>{ind}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="font-bold uppercase tracking-wider text-[11px]" style={{ color: 'var(--vf-text-muted)' }}>
+                          Basis Data Diperiksa:
+                        </span>
+                        <div className="space-y-1.5">
+                          {urlResult.sourcesChecked?.map((src, i) => (
+                            <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-black/20 border border-white/5">
+                              <span className="text-slate-300">{src.name}</span>
+                              <span className="text-[10px] font-mono font-bold text-emerald-400">{src.status}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {urlResult.verifyUrl && (
+                      <div className="pt-3 border-t flex justify-end" style={{ borderColor: 'var(--vf-border)' }}>
+                        <a
+                          href={urlResult.verifyUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 transition-all shadow-sm"
+                          style={{ backgroundColor: 'var(--vf-primary)' }}
+                        >
+                          <span>Verifikasi Google Transparency</span>
+                          <ExternalLinkIcon className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
                     )}
                   </>
                 ) : (
                   <p className="text-xs font-semibold text-rose-500">
-                    URL tidak valid. Pastikan alamat web menggunakan format yang benar (misal: https://...).
+                    {urlResult.warningMessage || 'URL tidak valid.'}
                   </p>
                 )}
               </div>

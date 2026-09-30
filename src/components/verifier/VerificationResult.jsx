@@ -39,7 +39,7 @@ export function VerificationResult({ result = {}, onReset, lang = 'id' }) {
     claim = {},
     sourceInaccessible = false,
     matchedPatterns = [],
-    evidenceList = [],
+    evidenceList = result.evidence || result.evidenceList || [],
     officialChannels = [],
     searchLinks = [],
     timestamp,
@@ -52,6 +52,9 @@ export function VerificationResult({ result = {}, onReset, lang = 'id' }) {
     limitations = [],
     auditTrail = [],
     generatedQueries = [],
+    honestNotice = result.honestNotice,
+    sourceAttributionNotice = result.sourceAttributionNotice,
+    patternSignals = result.patternSignals || [],
   } = result;
 
   const handleCopySummary = () => {
@@ -168,6 +171,78 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
         <p className="text-sm sm:text-base leading-relaxed" style={{ color: 'var(--vf-text-secondary)' }}>
           {t(lang, `verifier.verdict.${verdict}.summary`)}
         </p>
+
+        {/* Source Content Inaccessible / Honest Notice */}
+        {honestNotice && (
+          <div className="p-4 sm:p-5 rounded-xl border bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-3">
+            <div className="flex items-start gap-3">
+              <span className="text-xl">⚠️</span>
+              <div className="flex-1 space-y-1">
+                <h4 className="font-bold text-sm sm:text-base text-amber-400 tracking-wide uppercase">
+                  {honestNotice.title || (lang === 'id' ? 'ARTIKEL TIDAK DAPAT DIBACA' : 'SOURCE CONTENT UNAVAILABLE')}
+                </h4>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  {honestNotice.message || (lang === 'id'
+                    ? 'Kami berhasil mengenali URL ini, tetapi isi artikel tidak dapat diakses. Karena isi sumber tidak berhasil dibaca, VeriFact tidak akan membuat kesimpulan berdasarkan URL saja.'
+                    : 'The URL was recognized, but content could not be read. VeriFact will not infer a verdict from the URL alone.')}
+                </p>
+                {honestNotice.suggestions && honestNotice.suggestions.length > 0 && (
+                  <div className="pt-2 flex flex-wrap gap-2">
+                    {honestNotice.suggestions.map((sug, idx) => (
+                      <button
+                        key={idx}
+                        onClick={onReset}
+                        className="px-3 py-1 rounded-lg text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 transition-colors"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Official Source Attribution Notice */}
+        {sourceAttributionNotice && (
+          <div className="p-3.5 rounded-xl border bg-sky-500/10 border-sky-500/30 text-sky-200 text-xs sm:text-sm flex items-start gap-2.5">
+            <span className="text-sky-400 font-bold text-base">🔍</span>
+            <div className="flex-1">
+              <span className="font-semibold text-sky-300 block mb-0.5">
+                {lang === 'id' ? 'Atribusi Pemeriksaan Resmi / Tersimpan' : 'Official / Prior Verification Attribution'}
+              </span>
+              <p className="text-slate-300 leading-relaxed">{sourceAttributionNotice}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Scam / Manipulation Pattern Signals */}
+        {patternSignals && patternSignals.length > 0 && (
+          <div className="p-4 rounded-xl border bg-purple-500/10 border-purple-500/30 space-y-2.5">
+            <div className="flex items-center gap-2 text-purple-300 font-semibold text-xs sm:text-sm">
+              <span>🛡️</span>
+              <span>
+                {lang === 'id'
+                  ? 'Sinyal Pola Scam / Manipulasi Terdeteksi'
+                  : 'Scam / Manipulation Pattern Signals Detected'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {patternSignals.map((sig, idx) => (
+                <div key={idx} className="p-2.5 rounded-lg bg-black/25 border border-purple-500/20 space-y-1">
+                  <div className="font-bold text-purple-300">{sig.patternName || sig.patternMatch}</div>
+                  <div className="text-slate-300 text-[11px] leading-relaxed">{sig.explanation || sig.indicator}</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-purple-300/70 italic">
+              * {lang === 'id'
+                ? 'Catatan Integritas: Sinyal pola di atas menunjukkan indikator risiko struktural, bukan vonis mutlak tanpa bukti faktual.'
+                : 'Integrity note: Pattern signals flag structural risk indicators, not definitive verdicts without empirical evidence.'}
+            </p>
+          </div>
+        )}
 
         {/* Confidence Meter Section */}
         <ConfidenceMeter confidence={confidence} lang={lang} />

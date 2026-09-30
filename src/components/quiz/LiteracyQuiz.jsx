@@ -1,31 +1,45 @@
 /**
  * LiteracyQuiz.jsx
  *
- * Kuis gamifikasi literasi siber 5 studi kasus riil (APK, Deepfake, Bansos Phishing, dsb.).
- * Dilengkapi pembahasan edukatif setelah setiap jawaban dipilih.
+ * VeriFact ID 4.1 — Quiz Engine
+ * Kuis gamifikasi literasi siber dengan 100+ pool soal komprehensif.
+ * Setiap sesi memilih 5 soal acak tanpa duplikasi (Fisher-Yates shuffle),
+ * masing-masing bernilai 20 poin (total skor maksimal 100).
+ * Dilengkapi pembahasan edukatif setelah setiap pilihan dijawab.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CheckCircleIcon, AlertOctagonIcon, RefreshIcon, AwardIcon } from '../common/Icons.jsx';
-import { quizQuestions } from '../../data/mockData.js';
+import { createQuizSession } from '../../data/quiz/index.js';
 import { t } from '../../i18n/index.js';
 
 export function LiteracyQuiz({ lang = 'id' }) {
+  const [questions, setQuestions] = useState(() => createQuizSession(lang, 5));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState(null);
   const [score, setScore] = useState(0);
   const [isAnswered, setIsAnswered] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
 
-  const questions = quizQuestions[lang] || quizQuestions.id;
-  const currentQ = questions[currentIndex];
+  // Perbarui soal jika bahasa berganti
+  useEffect(() => {
+    setQuestions(createQuizSession(lang, 5));
+    setCurrentIndex(0);
+    setSelectedOption(null);
+    setScore(0);
+    setIsAnswered(false);
+    setIsFinished(false);
+  }, [lang]);
+
+  const currentQ = questions[currentIndex] || {};
+  const currentOptions = currentQ.options || [];
 
   const handleSelectOption = (opt) => {
     if (isAnswered) return;
     setSelectedOption(opt);
     setIsAnswered(true);
     if (opt.isCorrect) {
-      setScore((prev) => prev + 20);
+      setScore((prev) => prev + (currentQ.points || 20));
     }
   };
 
@@ -40,6 +54,8 @@ export function LiteracyQuiz({ lang = 'id' }) {
   };
 
   const handleRestart = () => {
+    // Bangkitkan 5 soal baru yang berbeda dari pool 100+
+    setQuestions(createQuizSession(lang, 5));
     setCurrentIndex(0);
     setSelectedOption(null);
     setScore(0);
@@ -52,7 +68,7 @@ export function LiteracyQuiz({ lang = 'id' }) {
       {/* Header */}
       <div className="text-center space-y-2">
         <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-          <span>Kuis Interaktif</span>
+          <span>Kuis Interaktif • 100+ Bank Soal</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--vf-text)' }}>
           {t(lang, 'quiz.title')}
@@ -70,11 +86,18 @@ export function LiteracyQuiz({ lang = 'id' }) {
           }}
         >
           {/* Header Bar */}
-          <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--vf-border)' }}>
-            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--vf-text-muted)' }}>
-              {t(lang, 'quiz.questionCounter', { current: currentIndex + 1, total: questions.length })}
-            </span>
-            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3" style={{ borderColor: 'var(--vf-border)' }}>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--vf-text-muted)' }}>
+                {t(lang, 'quiz.questionCounter', { current: currentIndex + 1, total: questions.length })}
+              </span>
+              {currentQ.category && (
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/25">
+                  {currentQ.category}
+                </span>
+              )}
+            </div>
+            <span className="font-mono text-xs font-bold px-2.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400">
               Skor: {score} / 100
             </span>
           </div>
@@ -86,7 +109,8 @@ export function LiteracyQuiz({ lang = 'id' }) {
 
           {/* Options */}
           <div className="space-y-3">
-            {currentQ.options.map((opt) => {
+            {currentOptions.map((opt, idx) => {
+              const letter = String.fromCharCode(65 + idx);
               const isSelected = selectedOption === opt;
               let btnStyle = {
                 backgroundColor: 'var(--vf-surface-muted)',
@@ -112,7 +136,7 @@ export function LiteracyQuiz({ lang = 'id' }) {
 
               return (
                 <button
-                  key={opt.key}
+                  key={idx}
                   disabled={isAnswered}
                   onClick={() => handleSelectOption(opt)}
                   className={`w-full text-left p-3.5 rounded-xl border text-xs sm:text-sm font-medium transition-all flex items-start space-x-3 ${
@@ -120,23 +144,23 @@ export function LiteracyQuiz({ lang = 'id' }) {
                   }`}
                   style={btnStyle}
                 >
-                  <span className="font-mono font-bold w-5 shrink-0">{opt.key}.</span>
+                  <span className="font-mono font-bold w-5 shrink-0">{letter}.</span>
                   <span className="flex-1">{opt.text}</span>
-                  {isAnswered && opt.isCorrect && <CheckCircleIcon className="w-4 h-4 text-emerald-500 shrink-0" />}
-                  {isAnswered && isSelected && !opt.isCorrect && <AlertOctagonIcon className="w-4 h-4 text-rose-500 shrink-0" />}
+                  {isAnswered && opt.isCorrect && <CheckCircleIcon className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />}
+                  {isAnswered && isSelected && !opt.isCorrect && <AlertOctagonIcon className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />}
                 </button>
               );
             })}
           </div>
 
           {/* Explanation Box */}
-          {isAnswered && (
+          {isAnswered && selectedOption && (
             <div className="p-4 rounded-xl border bg-blue-500/5 border-blue-500/20 text-xs space-y-1.5 vf-fade-up">
               <span className="font-bold text-blue-600 dark:text-blue-400 block">
                 {t(lang, 'quiz.explanationTitle')}
               </span>
-              <p className="leading-relaxed" style={{ color: 'var(--vf-text-secondary)' }}>
-                {currentQ.expl}
+              <p className="leading-relaxed text-slate-300">
+                {selectedOption.explanation || currentQ.expl || 'Pilihan ini didasarkan pada prinsip mitigasi literasi siber.'}
               </p>
             </div>
           )}
@@ -156,7 +180,7 @@ export function LiteracyQuiz({ lang = 'id' }) {
         </div>
       ) : (
         /* Finished Results Screen */
-        <div className="rounded-2xl p-8 border shadow-lg text-center space-y-4 vf-fade-up"
+        <div className="rounded-2xl p-8 border shadow-lg text-center space-y-5 vf-fade-up"
           style={{
             backgroundColor: 'var(--vf-surface)',
             borderColor: 'var(--vf-border)',
@@ -177,6 +201,13 @@ export function LiteracyQuiz({ lang = 'id' }) {
             <div className="text-4xl font-black font-mono mt-1" style={{ color: 'var(--vf-primary)' }}>
               {score} / 100
             </div>
+            <p className="text-xs text-slate-400 mt-2 max-w-md mx-auto">
+              {score >= 80
+                ? 'Luar biasa! Pemahaman literasi siber dan ketahanan cek fakta Anda sangat matang.'
+                : score >= 60
+                ? 'Bagus! Anda memiliki pemahaman dasar yang baik, tetap asah kewaspadaan terhadap modus baru.'
+                : 'Perlu latihan lebih lanjut! Selalu verifikasi sebelum menyebarkan atau mempercayai informasi online.'}
+            </p>
           </div>
 
           <button
@@ -185,7 +216,7 @@ export function LiteracyQuiz({ lang = 'id' }) {
             style={{ backgroundColor: 'var(--vf-primary)' }}
           >
             <RefreshIcon className="w-4 h-4" />
-            <span>{t(lang, 'quiz.retryBtn')}</span>
+            <span>Mulai 5 Soal Acak Baru</span>
           </button>
         </div>
       )}

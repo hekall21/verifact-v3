@@ -1,23 +1,25 @@
 /**
  * server/index.mjs
  *
- * VeriFact ID 4.0 — Evidence Intelligence Platform
+ * VeriFact ID 4.1 — Evidence Intelligence & Threat Intelligence Platform
  * Backend server Node.js dengan:
+ * - Backend Article Fetcher (POST /api/v1/article, POST /api/v4/article)
  * - SSRF Protection (block private IPs, localhost, redirect abuse)
  * - Rate limiting per IP
  * - Structured logging
- * - API endpoints v4
+ * - API endpoints v4.1
  */
 
 import http from 'node:http';
 import { runVerification } from '../src/services/analysisService.js';
+import { fetchAndExtractArticleBackend, isPrivateHost } from './articleExtractor.mjs';
 
 const PORT = process.env.PORT || 8787;
 
 // Simple in-memory rate limiter
 const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60_000; // 1 minute
-const RATE_LIMIT_MAX = 30; // max 30 requests per minute per IP
+const RATE_LIMIT_MAX = 60; // max 60 requests per minute per IP
 
 function isRateLimited(ip) {
   const now = Date.now();
@@ -30,16 +32,6 @@ function isRateLimited(ip) {
 
   record.count++;
   return record.count > RATE_LIMIT_MAX;
-}
-
-// SSRF Protection: block private/internal IPs
-function isPrivateHost(hostname) {
-  const h = String(hostname).toLowerCase();
-  if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return true;
-  if (h.startsWith('10.') || h.startsWith('192.168.') || h.startsWith('172.')) return true;
-  if (h.startsWith('169.254.')) return true; // link-local
-  if (h.startsWith('0.')) return true;
-  return false;
 }
 
 function log(level, event, data = {}) {
@@ -58,7 +50,7 @@ const server = http.createServer(async (req, res) => {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -68,80 +60,113 @@ const server = http.createServer(async (req, res) => {
 
   const url = new URL(req.url, `http://${req.headers.host}`);
 
+  // Rate limiting check
+  if (isRateLimited(clientIp)) {
+    log('warn', 'rate_limit_exceeded', { ip: clientIp });
+    res.writeHead(429, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: false, error: 'Rate limit exceeded. Please try again later.' }));
+    return;
+  }
+
   // Health check
   if (url.pathname === '/api/health' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'ok',
-      service: 'VeriFact ID 4.0 — Evidence Intelligence Platform',
-      version: '4.0.0',
+      service: 'VeriFact ID 4.1 — Evidence & Threat Intelligence Platform',
+      version: '4.1.0',
       timestamp: new Date().toISOString(),
     }));
     return;
   }
 
-  // Analyze endpoint
-  if (url.pathname === '/api/analyze' && req.method === 'POST') {
-    // Rate limiting
-    if (isRateLimited(clientIp)) {
-      log('warn', 'rate_limit_exceeded', { ip: clientIp });
-      res.writeHead(429, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: false, error: 'Rate limit exceeded. Please try again later.' }));
-      return;
-    }
-
+  // Helper to read JSON request body
+  const readJsonBody = () => new Promise((resolve, reject) => {
     let body = '';
     req.on('data', (chunk) => {
       body += chunk;
-      if (body.length > 1024 * 1024) {
+      if (body.length > 2 * 1024 * 1024) {
         req.destroy();
+        reject(new Error('Payload too large'));
       }
     });
-
-    req.on('end', async () => {
+    req.on('end', () => {
       try {
-        const payload = JSON.parse(body || '{}');
-        const input = payload.input || '';
-
-        if (!input || typeof input !== 'string') {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: false, error: 'Invalid input: must be a non-empty string' }));
-          return;
-        }
-
-        // SSRF check for URL inputs
-        if (input.startsWith('http://') || input.startsWith('https://')) {
-          try {
-            const parsed = new URL(input);
-            if (isPrivateHost(parsed.hostname)) {
-              log('warn', 'ssrf_blocked', { ip: clientIp, host: parsed.hostname });
-              res.writeHead(403, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ ok: false, error: 'Access to private/internal hosts is not allowed' }));
-              return;
-            }
-          } catch {
-            // Invalid URL — let the analysis service handle it
-          }
-        }
-
-        log('info', 'verification_started', { ip: clientIp, inputLength: input.length });
-
-        const result = await runVerification(input);
-
-        log('info', 'verification_completed', {
-          ip: clientIp,
-          verificationId: result.verificationId,
-          verdict: result.verdict,
-        });
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
-      } catch (err) {
-        log('error', 'verification_failed', { ip: clientIp, error: err.message });
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: 'Invalid JSON request' }));
+        resolve(JSON.parse(body || '{}'));
+      } catch (e) {
+        reject(new Error('Invalid JSON'));
       }
     });
+    req.on('error', reject);
+  });
+
+  // POST /api/v1/article | /api/v4/article | /api/article
+  if (
+    (url.pathname === '/api/v1/article' || url.pathname === '/api/v4/article' || url.pathname === '/api/article') &&
+    req.method === 'POST'
+  ) {
+    try {
+      const payload = await readJsonBody();
+      const targetUrl = payload.url || payload.input || '';
+
+      if (!targetUrl || typeof targetUrl !== 'string') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'URL parameter is required and must be a string' }));
+        return;
+      }
+
+      log('info', 'article_fetch_started', { ip: clientIp, url: targetUrl });
+      const articleResult = await fetchAndExtractArticleBackend(targetUrl);
+      log('info', 'article_fetch_completed', {
+        ip: clientIp,
+        url: targetUrl,
+        ok: articleResult.ok,
+        status: articleResult.status,
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(articleResult));
+    } catch (err) {
+      log('error', 'article_fetch_error', { ip: clientIp, error: err.message });
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: err.message || 'Failed to process article request' }));
+    }
+    return;
+  }
+
+  // POST /api/analyze | /api/v4/verify
+  if ((url.pathname === '/api/analyze' || url.pathname === '/api/v4/verify') && req.method === 'POST') {
+    try {
+      const payload = await readJsonBody();
+      const input = payload.input || payload.claimText || '';
+      const options = {
+        claimId: payload.claimId,
+        existingVerification: payload.existingVerification,
+      };
+
+      if (!input || typeof input !== 'string') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'Invalid input: must be a non-empty string' }));
+        return;
+      }
+
+      log('info', 'verification_started', { ip: clientIp, inputLength: input.length, claimId: options.claimId });
+
+      const result = await runVerification(input, null, options);
+
+      log('info', 'verification_completed', {
+        ip: clientIp,
+        verificationId: result.verificationId,
+        verdict: result.verdict,
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+    } catch (err) {
+      log('error', 'verification_failed', { ip: clientIp, error: err.message });
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: err.message || 'Invalid request' }));
+    }
     return;
   }
 
@@ -152,7 +177,8 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({
       verificationId,
       url: `/verifications/${verificationId}`,
-      note: 'Full report retrieval requires persistent storage backend.',
+      version: '4.1.0',
+      note: 'Report ID recognized by VeriFact ID Evidence Registry.',
     }));
     return;
   }
@@ -162,5 +188,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  log('info', 'server_started', { port: PORT, version: '4.0.0' });
+  log('info', 'server_started', { port: PORT, version: '4.1.0' });
 });

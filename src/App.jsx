@@ -63,7 +63,7 @@ export function App() {
     setLang((prev) => (prev === 'id' ? 'en' : 'id'));
   };
 
-  const handleVerify = async (queryText) => {
+  const handleVerify = async (queryText, options = {}) => {
     const text = (queryText || input).trim();
     if (!text) return;
 
@@ -72,12 +72,12 @@ export function App() {
     setCurrentStep(1);
 
     try {
-      // Jalankan verifikasi dengan pembaruan progres bertahap
+      // Jalankan verifikasi dengan pembaruan progres bertahap dan opsi klaim bersama
       const res = await runVerification(text, (step) => {
         setCurrentStep(step);
-      });
+      }, options);
 
-      // Beri sedikit jeda visual pada langkah ke-5 agar transisi terasa alami
+      // Beri sedikit jeda visual pada langkah terakhir agar transisi terasa alami
       setTimeout(() => {
         setResult(res);
         setLoading(false);
@@ -88,10 +88,12 @@ export function App() {
     }
   };
 
-  const handleInspectClaim = (claimText) => {
+  const handleInspectClaim = (claimPayload) => {
     setActiveTab('verifier');
+    const claimText = typeof claimPayload === 'string' ? claimPayload : claimPayload.claimText;
+    const claimOptions = typeof claimPayload === 'object' ? claimPayload : {};
     setInput(claimText);
-    handleVerify(claimText);
+    handleVerify(claimText, claimOptions);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

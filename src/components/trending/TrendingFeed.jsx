@@ -162,7 +162,7 @@ export function TrendingFeed({ lang = 'id', onInspectClaim }) {
 
                 <button
                   type="button"
-                  onClick={() => onInspectClaim(item.title)}
+                  onClick={() => onInspectClaim({ claimId: `TR-${item.id}`, claimText: item.title, existingVerification: true })}
                   className="px-2.5 py-1 rounded-lg font-semibold flex items-center space-x-1 hover:underline text-xs"
                   style={{ color: 'var(--vf-primary)' }}
                 >
