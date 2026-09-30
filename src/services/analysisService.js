@@ -1,19 +1,25 @@
 /**
  * src/services/analysisService.js
  *
- * VeriFact ID 4.1 — Evidence Intelligence Platform
+ * VeriFact ID 4.2 — Evidence Intelligence Platform
  * Orchestrator Utama Pipeline Verifikasi Fakta
  *
- * Pembaruan Krusial v4.1 (§Part 1, §Part 2, §Part 3, §Part 5, §Part 7, §Part 8, §Part 15, §Part 20, §Part 21):
- * 1. Membaca artikel melalui Backend Article Fetcher.
- * 2. Jika artikel tidak dapat dibaca: JANGAN MENGARANG, kembalikan SOURCE_CONTENT_UNAVAILABLE.
- * 3. Jika artikel berhasil dibaca: ekstrak klaim dari isi artikel (bukan raw URL).
- * 4. Konsistensi Trending & AI Analysis via shared verificationRepository.
- * 5. Eksekusi query generated secara nyata (Support & Refute query).
- * 6. Provider isolation & pemisahan sinyal pattern corpus dari bukti faktual.
+ * Fitur & Standar Kritis v4.2:
+ * 1. Pipeline State Machine:
+ *    - classifying -> retrieving-source -> extracting-content -> extracting-claims
+ *    - searching-evidence -> comparing-evidence -> building-verdict -> completed
+ * 2. News Homepage Detection:
+ *    Jika URL adalah domain/homepage berita (mis. https://www.detik.com/),
+ *    sistem menolak menganggapnya artikel dan memberikan panduan jujur.
+ * 3. Jika artikel tidak dapat dibaca: JANGAN MENGARANG, kembalikan SOURCE_CONTENT_UNAVAILABLE.
+ * 4. Verdict berasal dari: article content + claim extraction + evidence + source comparison (BUKAN DARI URL!).
+ * 5. Multi-Query Execution (Support & Refute Queries nyata).
+ * 6. Provider Isolation (kegagalan satu provider tidak membuat proses macet).
+ * 7. Konsistensi Trending & AI Analysis via shared verificationRepository.
+ * 8. Pemisahan tegas antara Analysis Progress, Confidence Score, dan Verdict.
  */
 
-import { classifyInput } from '../utils/urlDetector.js';
+import { classifyInput, isNewsHomepageUrl } from '../utils/urlDetector.js';
 import {
   extractClaim,
   extractAmounts,
@@ -34,11 +40,33 @@ import { fetchAndExtractArticle } from './articleService.js';
 import { determineVerdict, VERDICT } from '../utils/verdict.js';
 import { findVerificationRecord, saveVerificationRecord } from './verificationRepository.js';
 
+export const PIPELINE_STATES = {
+  CLASSIFYING: { step: 1, state: 'classifying', label: 'Mengenali format input' },
+  RETRIEVING_SOURCE: { step: 2, state: 'retrieving-source', label: 'Mengambil sumber / validasi tautan' },
+  EXTRACTING_CONTENT: { step: 3, state: 'extracting-content', label: 'Membaca isi dan metadata' },
+  EXTRACTING_CLAIMS: { step: 4, state: 'extracting-claims', label: 'Mengekstrak klaim atomik' },
+  SEARCHING_EVIDENCE: { step: 5, state: 'searching-evidence', label: 'Mencari bukti dari multi-provider' },
+  COMPARING_EVIDENCE: { step: 6, state: 'comparing-evidence', label: 'Membandingkan bukti & kluster independensi' },
+  BUILDING_VERDICT: { step: 7, state: 'building-verdict', label: 'Menyusun kesimpulan & keyakinan' },
+  COMPLETED: { step: 7, state: 'completed', label: 'Analisis selesai' },
+  FAILED: { step: 0, state: 'failed', label: 'Analisis gagal' },
+};
+
 export async function runVerification(rawInput, onProgressOrOptions, options = {}) {
   let onProgress = typeof onProgressOrOptions === 'function' ? onProgressOrOptions : null;
   let opts = typeof onProgressOrOptions === 'object' && onProgressOrOptions !== null
     ? { ...onProgressOrOptions, ...options }
     : { ...options };
+
+  const notifyProgress = (stateObj) => {
+    if (onProgress) {
+      try {
+        onProgress(stateObj.step, stateObj);
+      } catch {
+        // Safe progression
+      }
+    }
+  };
 
   let actualInput = rawInput;
   if (typeof rawInput === 'object' && rawInput !== null) {
@@ -49,8 +77,8 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
   const timestamp = new Date().toISOString();
   const verificationId = generateVerificationId('VF-2026');
 
-  // LANGKAH 1: Klasifikasi Format Input
-  if (onProgress) onProgress(1);
+  // LANGKAH 1: Mengenali format input
+  notifyProgress(PIPELINE_STATES.CLASSIFYING);
   const classification = classifyInput(actualInput);
 
   if (classification.kind === 'empty') {
@@ -66,8 +94,8 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
     };
   }
 
-  // LANGKAH 2: Pengambilan Konten Artikel (Jika URL) atau Teks Bebas
-  if (onProgress) onProgress(2);
+  // LANGKAH 2 & 3: Mengambil sumber & Membaca isi
+  notifyProgress(PIPELINE_STATES.RETRIEVING_SOURCE);
   let urlInfo = null;
   let textToAnalyze = String(actualInput).trim();
   let contentRetrieved = false;
@@ -78,14 +106,85 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
     const article = await fetchAndExtractArticle(rawInput);
     urlInfo = article;
 
-    // Jika artikel TIDAK DAPAT DIBACA: JANGAN MENGARANG!
+    // KASUS KHUSUS 1: NEWS HOMEPAGE (Detik.com, Kompas.com, dll.)
+    if (article.status === 'NEWS_HOMEPAGE_DETECTED' || article.isHomepage) {
+      notifyProgress(PIPELINE_STATES.COMPLETED);
+      return {
+        ok: true,
+        version: '4.2.0',
+        verificationId,
+        timestamp,
+        inputKind: 'url',
+        rawInput,
+        urlInfo: article,
+        isNewsHomepage: true,
+        sourceInaccessible: true,
+        contentRetrieved: false,
+        status: 'NEWS_HOMEPAGE_DETECTED',
+        verdict: VERDICT.UNVERIFIABLE,
+        reasonKey: 'newsHomepageDetected',
+        reasonCodes: ['newsHomepageDetected'],
+        claim: {
+          mainClaim: `Halaman Utama Portal Berita (${article.domain || 'Media'})`,
+          sentences: [],
+          entities: [article.domain || 'Media Portal'],
+          amounts: [],
+          dates: [],
+          locations: [],
+          styleMarkers: [],
+          keywords: ['portal berita', 'halaman utama', article.domain || 'media'],
+        },
+        atomicClaims: [],
+        generatedQueries: [],
+        evidence: [],
+        sourceClusters: [],
+        conflictAnalysis: { hasConflict: false },
+        temporalAnalysis: { isCurrent: true, label: 'Waktu Tidak Diketahui' },
+        confidence: {
+          score: 0,
+          band: 'veryLow',
+          label: 'TIDAK TERSEDIA',
+          sourceCoverage: 'None',
+          primarySourcesCount: 0,
+          independentClustersCount: 0,
+          factors: [
+            { code: 'homepage_not_article', text: 'Input merupakan beranda situs berita, bukan URL artikel spesifik', impact: 0 },
+          ],
+        },
+        honestNotice: {
+          title: 'DOMAIN TERDETEKSI',
+          domain: article.domain,
+          message: article.message || `DOMAIN TERDETEKSI: ${article.domain}. Ini adalah halaman utama situs berita, bukan URL artikel tertentu. Untuk analisis berita, masukkan URL artikel spesifik.`,
+          actionSuggestions: [
+            'Buka artikel berita spesifik dan salin tautannya',
+            'Tempel teks judul atau isi artikel langsung ke kolom pencarian',
+          ],
+        },
+        limitations: [
+          'Halaman depan portal berita memuat ratusan judul artikel dinamis yang selalu diperbarui.',
+          'Pemeriksaan fakta akurat membutuhkan URL artikel spesifik atau isi teks yang ingin diverifikasi.',
+        ],
+        auditTrail: [
+          { step: 1, title: 'Input Classification', detail: 'Masukan dikenali sebagai URL web.' },
+          { step: 2, title: 'Domain Inspection', detail: `Terdeteksi sebagai beranda situs berita (${article.domain}).` },
+          { step: 3, title: 'Honest Guidance', detail: 'Sistem meminta tautan artikel spesifik dan tidak membuat vonis spekulatif.' },
+        ],
+        methodology: {
+          engine: 'VeriFact Evidence Intelligence Engine 4.2',
+          standards: 'IFCN Code of Principles & Transparent Evidence Ledger',
+        },
+      };
+    }
+
+    // KASUS KHUSUS 2: ARTIKEL TIDAK DAPAT DIAKSES
     if (!article.ok || !article.content?.text) {
       sourceInaccessible = true;
       contentRetrieved = false;
+      notifyProgress(PIPELINE_STATES.COMPLETED);
 
       return {
         ok: true,
-        version: '4.1.0',
+        version: '4.2.0',
         verificationId,
         timestamp,
         inputKind: 'url',
@@ -115,18 +214,22 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
         temporalAnalysis: { isCurrent: true, label: 'Waktu Tidak Diketahui' },
         confidence: {
           score: 0,
-          level: 'low',
+          band: 'veryLow',
           label: 'TIDAK TERSEDIA',
           sourceCoverage: 'None',
           primarySourcesCount: 0,
           independentClustersCount: 0,
+          factors: [
+            { code: 'sourceContentUnavailable', impact: -30 },
+          ],
         },
         honestNotice: {
           title: 'ARTIKEL TIDAK DAPAT DIBACA',
-          message: 'Kami berhasil mengenali URL ini, tetapi isi artikel tidak dapat diakses. Karena isi sumber tidak berhasil dibaca, VeriFact tidak akan membuat kesimpulan berdasarkan URL saja.',
+          domain: article.domain,
+          message: article.message || 'Kami berhasil mengenali URL ini, tetapi isi artikel tidak dapat diakses (proteksi bot, JavaScript, atau batas jaringan). Karena isi sumber tidak berhasil dibaca, VeriFact tidak akan membuat kesimpulan berdasarkan URL saja.',
           actionSuggestions: [
-            'Tempelkan teks pernyataan / klaim langsung ke kolom pencarian',
-            'Salin dan tempel paragraf isi artikel secara manual',
+            'Tempelkan teks pernyataan / artikel langsung ke kolom verifikasi',
+            'Salin dan tempel paragraf isi berita secara manual',
           ],
         },
         limitations: [
@@ -139,33 +242,32 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
           { step: 3, title: 'Honest Fallback', detail: 'VeriFact menghentikan analisis agar tidak menghasilkan halusinasi spekulatif.' },
         ],
         methodology: {
-          engine: 'VeriFact Evidence Intelligence Engine 4.1',
+          engine: 'VeriFact Evidence Intelligence Engine 4.2',
           standards: 'IFCN Code of Principles & Transparent Evidence Ledger',
         },
       };
     }
 
-    // Artikel BERHASIL diambil: Ekstrak dari ISI ARTIKEL
+    // Artikel BERHASIL diambil
+    notifyProgress(PIPELINE_STATES.EXTRACTING_CONTENT);
     contentRetrieved = true;
     articleMetadata = article.source;
-    // Gunakan judul artikel + ringkasan + teks tubuh artikel
     const fullArticleContent = `${article.source.title || ''}. ${article.source.description || ''}\n\n${article.content.text}`;
     textToAnalyze = fullArticleContent;
   } else {
+    notifyProgress(PIPELINE_STATES.EXTRACTING_CONTENT);
     contentRetrieved = true;
   }
 
-  // LANGKAH 3: Ekstraksi Klaim & Dekomposisi Klaim Atomik (§Part 2)
-  if (onProgress) onProgress(3);
+  // LANGKAH 4: Mengekstrak klaim & Dekomposisi Klaim Atomik
+  notifyProgress(PIPELINE_STATES.EXTRACTING_CLAIMS);
 
-  // Jika berasal dari URL, utamakan title dan paragraf awal artikel untuk claim extraction
   const claimSourceText = articleMetadata
     ? `${articleMetadata.title || ''}. ${textToAnalyze.slice(0, 1500)}`
     : textToAnalyze;
 
   const claimStructure = extractClaim(claimSourceText);
 
-  // Jika input dari URL, pasang mainClaim yang representatif dari judul artikel
   if (articleMetadata && articleMetadata.title) {
     claimStructure.mainClaim = articleMetadata.title;
   }
@@ -180,7 +282,6 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
   const styleMarkers = claimStructure.styleMarkers || [];
   const keywords = claimStructure.keywords || [];
 
-  // Dekomposisi Klaim Atomik
   const atomicClaims = decomposeIntoAtomicClaims(
     claimStructure.mainClaim || textToAnalyze.slice(0, 200),
     claimStructure.entities,
@@ -188,7 +289,6 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
     dates
   );
 
-  // Generasi Multi-Query Cerdas (Support & Refute Queries)
   const generatedQueries = generateVerificationQueries(
     claimStructure.mainClaim || textToAnalyze.slice(0, 200),
     atomicClaims,
@@ -196,10 +296,9 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
     dates
   );
 
-  // LANGKAH 4: Konsistensi Trending & Penelusuran Multi-Provider (§Part 3 & §Part 5)
-  if (onProgress) onProgress(4);
+  // LANGKAH 5: Mencari bukti dari multi-provider (Support & Refute Queries)
+  notifyProgress(PIPELINE_STATES.SEARCHING_EVIDENCE);
 
-  // Periksa apakah klaim ini sudah memiliki record di repositori verifikasi bersama
   const existingRepoCheck = findVerificationRecord(claimStructure.mainClaim, opts.claimId);
   let priorFactCheckRecord = null;
   let sourceAttributionNotice = null;
@@ -209,7 +308,6 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
     sourceAttributionNotice = `Pemeriksaan sebelumnya dari sumber rujukan (${priorFactCheckRecord.sourceAttribution}) menyimpulkan status klaim ini.`;
   }
 
-  // Kumpulkan bukti dari seluruh provider (FactCheck, Official, News, Web)
   const providerResults = await gatherEvidenceFromAllProviders(
     claimStructure.mainClaim || textToAnalyze.slice(0, 200),
     {
@@ -223,7 +321,6 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
   const gatheredEvidences = providerResults.evidence || [];
   const patternSignals = providerResults.patternSignals || [];
 
-  // Jika ada record existing dari fact-check repo, pastikan buktinya disatukan
   if (priorFactCheckRecord && priorFactCheckRecord.evidence) {
     for (const ev of priorFactCheckRecord.evidence) {
       if (!gatheredEvidences.some((ge) => ge.id === ev.id || ge.url === ev.url)) {
@@ -232,21 +329,16 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
     }
   }
 
-  // LANGKAH 5: Klasterisasi Sumber & Evaluasi Klaim Atomik
-  if (onProgress) onProgress(5);
+  // LANGKAH 6: Membandingkan bukti & Kluster independensi
+  notifyProgress(PIPELINE_STATES.COMPARING_EVIDENCE);
   const sourceClusters = clusterSources(gatheredEvidences);
   const evaluatedAtomicClaims = evaluateAtomicClaims(atomicClaims, gatheredEvidences);
-
-  // LANGKAH 6: Deteksi Konflik & Analisis Linimasa Temporal
-  if (onProgress) onProgress(6);
   const conflictAnalysis = detectEvidenceConflicts(gatheredEvidences);
   const temporalAnalysis = analyzeTemporalContext(dates, gatheredEvidences, urlInfo?.source?.publishedAt);
 
-  // LANGKAH 7: Sintesis Kesimpulan Keseluruhan (Verdict Priority §Part 8)
-  if (onProgress) onProgress(7);
+  // LANGKAH 7: Menyusun kesimpulan & keyakinan
+  notifyProgress(PIPELINE_STATES.BUILDING_VERDICT);
   const atomicSynthesis = synthesizeOverallVerdict(evaluatedAtomicClaims);
-
-  // Prioritas: Jika ada existing fact check yang cocok kuat, gunakan priorVerdict
   const priorVerdictToUse = priorFactCheckRecord?.verdict || atomicSynthesis.verdict;
 
   const verdictResult = determineVerdict({
@@ -256,16 +348,15 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
     priorVerdict: priorVerdictToUse,
   });
 
-  // Kalkulasi Keyakinan
   const confidenceResult = computeConfidence({
     verdict: verdictResult.verdict,
     evidence: gatheredEvidences,
     stats: verdictResult.stats,
     contentRetrieved,
     evidenceSearchPerformed: true,
+    priorFactCheck: Boolean(priorFactCheckRecord),
   });
 
-  // Tentukan cakupan sumber (Source Coverage)
   let sourceCoverage = 'Low';
   if (sourceClusters.length >= 3 || gatheredEvidences.length >= 4) {
     sourceCoverage = 'High';
@@ -273,10 +364,9 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
     sourceCoverage = 'Medium';
   }
 
-  // Daftarkan Batasan Jujur Sistem (Transparent Limitations)
   const limitations = [
-    'Penilaian dilakukan berdasarkan data dan bukti yang berhasil diakses pada saat pemeriksaan.',
-    'Konten media sosial privat atau grup percakapan tertutup tidak dapat diakses secara langsung.',
+    'Penilaian dilakukan secara objektif berdasarkan bukti independen yang berhasil diverifikasi.',
+    'Konten media sosial tertutup atau pesan instan privat tidak dapat diakses secara publik.',
     'Pemeriksaan tidak menyimpulkan motif personal pihak terkait di luar bukti pernyataan resmi.',
   ];
 
@@ -285,21 +375,19 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
   }
 
   if (providerResults.hasPartialFailure) {
-    limitations.push('Beberapa kanal bukti mengalami perlambatan jaringan (partial verification).');
+    limitations.push('Beberapa kanal bukti eksternal mengalami perlambatan atau belum dikonfigurasi API resminya.');
   }
 
-  // Audit Trail Langkah Kerja Sistem ("Show Your Work")
   const auditTrail = [
     { step: 1, title: 'Input Classification', detail: `Format masukan terdeteksi sebagai: ${classification.kind.toUpperCase()}` },
-    { step: 2, title: 'Source Retrieval', detail: classification.kind === 'url' ? 'Berhasil mengambil teks artikel dan metadata via Backend Fetcher.' : 'Teks langsung diproses untuk dekomposisi klaim.' },
+    { step: 2, title: 'Source Retrieval', detail: classification.kind === 'url' ? 'Berhasil mengambil teks artikel dan metadata via Multi-Strategy Extractor.' : 'Teks langsung diproses untuk dekomposisi klaim.' },
     { step: 3, title: 'Claim & Query Extraction', detail: `Mengekstrak ${atomicClaims.length} klaim atomik dan membuat ${generatedQueries.length} query pencarian (Support + Refute).` },
-    { step: 4, title: 'Evidence Retrieval', detail: `Ditemukan ${gatheredEvidences.length} bukti dari kanal resmi dan arsip periksa fakta.` },
+    { step: 4, title: 'Evidence Retrieval', detail: `Ditemukan ${gatheredEvidences.length} bukti terverifikasi dari kanal resmi dan pemeriksa fakta.` },
     { step: 5, title: 'Source Independence Clustering', detail: `Dikelompokkan menjadi ${sourceClusters.length} kluster sumber independen.` },
     { step: 6, title: 'Conflict & Temporal Check', detail: conflictAnalysis.hasConflict ? 'Terdeteksi diskrepansi antar sumber.' : 'Arah kesimpulan sumber konsisten.' },
     { step: 7, title: 'Verdict Synthesis', detail: `Status verifikasi disintesis menjadi: ${verdictResult.verdict}` },
   ];
 
-  // Simpan record baru ke Shared Verification Repository
   const newVerificationRecord = {
     claimId: opts.claimId || `VF-${Date.now()}`,
     claimText: claimStructure.mainClaim || textToAnalyze.slice(0, 150),
@@ -313,7 +401,6 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
   };
   saveVerificationRecord(newVerificationRecord);
 
-  // Hitung Report Hash SHA-256
   const reportPayload = {
     verificationId,
     claim: { mainClaim: claimStructure.mainClaim },
@@ -323,9 +410,11 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
   };
   const reportHash = await computeReportHash(reportPayload);
 
+  notifyProgress(PIPELINE_STATES.COMPLETED);
+
   return {
     ok: true,
-    version: '4.1.0',
+    version: '4.2.0',
     verificationId,
     reportHash,
     timestamp,
@@ -366,7 +455,7 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
     limitations,
     auditTrail,
     methodology: {
-      engine: 'VeriFact Evidence Intelligence Engine 4.1',
+      engine: 'VeriFact Evidence Intelligence Engine 4.2',
       standards: 'IFCN Code of Principles & Transparent Evidence Ledger',
     },
   };

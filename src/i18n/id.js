@@ -9,7 +9,7 @@ export default {
     name: 'VeriFact ID',
     tagline: 'Platform Verifikasi Informasi & Perlindungan Siber Transparan',
     subtitle: 'Periksa tautan berita, klaim viral, pesan berantai, rekening, dan nomor kontak sebelum percaya.',
-    badge: 'Versi 3.0 Enterprise',
+    badge: 'v4.2 Pro',
     demoModeBadge: 'Mode Analisis Lokal (Siap Hubung API)',
     offlineNotice: 'Aplikasi berjalan dalam mode mandiri tanpa dependensi cloud luar.',
   },
@@ -19,7 +19,7 @@ export default {
     trending: 'Tren Disinformasi',
     quiz: 'Kuis Literasi',
     literacy: 'Panduan Kritis',
-    report: 'Lapor Hoaks',
+    report: 'Lapor Resmi',
     methodology: 'Metodologi',
   },
   theme: {

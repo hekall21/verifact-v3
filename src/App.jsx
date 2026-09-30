@@ -1,9 +1,9 @@
 /**
- * App.jsx
+ * src/App.jsx
  *
- * Shell aplikasi utama VeriFact ID 3.0.
- * Menghubungkan tema (Dark/Light), bahasa reaktif (ID/EN), tab navigasi,
- * orkestrasi verifikasi fakta, dan fitur pertahanan siber pendukung.
+ * Shell aplikasi utama VeriFact ID 4.2.
+ * Menghubungkan tema (Dark/Light), bahasa reaktif (ID/EN), navigasi tab,
+ * pipeline verifikasi fakta multi-state, dan Official Reporting Hub.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -16,9 +16,9 @@ import { ScamShield } from './components/scam/ScamShield.jsx';
 import { TrendingFeed } from './components/trending/TrendingFeed.jsx';
 import { LiteracyQuiz } from './components/quiz/LiteracyQuiz.jsx';
 import { DigitalLiteracy } from './components/literacy/DigitalLiteracy.jsx';
-import { ReportHoax } from './components/report/ReportHoax.jsx';
+import { OfficialReportingHub } from './components/report/OfficialReportingHub.jsx';
 import { MethodologyModal } from './components/methodology/MethodologyModal.jsx';
-import { ShieldIcon, CheckCircleIcon, LinkIcon } from './components/common/Icons.jsx';
+import { ShieldIcon, CheckCircleIcon } from './components/common/Icons.jsx';
 import { runVerification } from './services/analysisService.js';
 import { t } from './i18n/index.js';
 
@@ -34,6 +34,7 @@ export function App() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [currentState, setCurrentState] = useState('');
   const [result, setResult] = useState(null);
   const [methodologyOpen, setMethodologyOpen] = useState(false);
 
@@ -70,18 +71,23 @@ export function App() {
     setLoading(true);
     setResult(null);
     setCurrentStep(1);
+    setCurrentState('classifying');
 
     try {
-      // Jalankan verifikasi dengan pembaruan progres bertahap dan opsi klaim bersama
-      const res = await runVerification(text, (step) => {
-        setCurrentStep(step);
-      }, options);
+      const res = await runVerification(
+        text,
+        (step, stateObj) => {
+          setCurrentStep(step);
+          if (stateObj?.state) setCurrentState(stateObj.state);
+        },
+        options
+      );
 
-      // Beri sedikit jeda visual pada langkah terakhir agar transisi terasa alami
+      // Jeda visual halus agar transisi tahap selesai terasa mulus
       setTimeout(() => {
         setResult(res);
         setLoading(false);
-      }, 350);
+      }, 300);
     } catch (err) {
       console.error('[Verification Error]', err);
       setLoading(false);
@@ -104,7 +110,8 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans transition-colors duration-200"
+    <div
+      className="min-h-screen flex flex-col font-sans transition-colors duration-200"
       style={{
         backgroundColor: 'var(--vf-bg)',
         color: 'var(--vf-text)',
@@ -125,10 +132,11 @@ export function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         {activeTab === 'verifier' && (
           <div className="space-y-8">
-            {/* Hero Banner (hanya tampil saat belum ada hasil) */}
+            {/* Hero Section (§33) */}
             {!result && !loading && (
               <div className="text-center space-y-4 max-w-3xl mx-auto py-6 sm:py-10 vf-fade-up">
-                <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm"
+                <div
+                  className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm"
                   style={{
                     backgroundColor: 'color-mix(in srgb, var(--vf-primary) 12%, transparent)',
                     color: 'var(--vf-primary)',
@@ -136,37 +144,43 @@ export function App() {
                   }}
                 >
                   <ShieldIcon className="w-3.5 h-3.5" />
-                  <span>{t(lang, 'app.badge')}</span>
+                  <span>{t(lang, 'app.badge')} • Evidence Intelligence</span>
                 </div>
 
-                <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight"
-                  style={{ fontFamily: 'var(--font-display)', color: 'var(--vf-text)' }}
+                <h1
+                  className="text-3xl sm:text-5xl font-black tracking-tight leading-tight"
+                  style={{ fontFamily: 'var(--font-display)', color: 'var(--vf-text)', lineHeight: 1.15 }}
                 >
                   {lang === 'id' ? (
                     <>
-                      Periksa Informasi Sebelum <span style={{ color: 'var(--vf-primary)' }}>Percaya</span>
+                      Verifikasi Sebelum <span style={{ color: 'var(--vf-primary)' }}>Percaya.</span>
                     </>
                   ) : (
                     <>
-                      Verify Information Before You <span style={{ color: 'var(--vf-primary)' }}>Trust</span>
+                      Verify Before You <span style={{ color: 'var(--vf-primary)' }}>Trust.</span>
                     </>
                   )}
                 </h1>
 
-                <p className="text-sm sm:text-base leading-relaxed max-w-2xl mx-auto" style={{ color: 'var(--vf-text-secondary)' }}>
-                  {t(lang, 'verifier.subtitle')}
+                <p
+                  className="text-sm sm:text-base max-w-2xl mx-auto leading-relaxed"
+                  style={{ color: 'var(--vf-text-secondary)', lineHeight: 1.5 }}
+                >
+                  {lang === 'id'
+                    ? 'Periksa berita, URL, pesan, dan indikasi penipuan berdasarkan bukti yang dapat ditelusuri secara objektif dan transparan.'
+                    : 'Verify news articles, URLs, chain messages, and cyber scam indicators based on traceable and objective evidence.'}
                 </p>
 
-                {/* Feature Value Highlights */}
+                {/* Trust Highlights */}
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-xs" style={{ color: 'var(--vf-text-muted)' }}>
                   <span className="flex items-center space-x-1.5 font-medium">
                     <CheckCircleIcon className="w-4 h-4 text-emerald-500" />
-                    <span>7 Kategori Status Transparan</span>
+                    <span>Hierarki Otoritas Tier 1-3</span>
                   </span>
                   <span className="opacity-40">&bull;</span>
                   <span className="flex items-center space-x-1.5 font-medium">
                     <CheckCircleIcon className="w-4 h-4 text-emerald-500" />
-                    <span>Hierarki Otoritas Tier 1-3</span>
+                    <span>Multi-Strategy Article Extractor</span>
                   </span>
                   <span className="opacity-40">&bull;</span>
                   <span className="flex items-center space-x-1.5 font-medium">
@@ -177,7 +191,7 @@ export function App() {
               </div>
             )}
 
-            {/* Input Component */}
+            {/* Input Component (§34) */}
             <VerifierInput
               input={input}
               setInput={setInput}
@@ -187,12 +201,12 @@ export function App() {
               onClear={handleClear}
             />
 
-            {/* Loading Progress State */}
+            {/* Loading Pipeline State (§5) */}
             {loading && (
-              <AnalysisProgress currentStep={currentStep} lang={lang} />
+              <AnalysisProgress currentStep={currentStep} currentState={currentState} lang={lang} />
             )}
 
-            {/* Verification Result Report */}
+            {/* Verification Result Report (§35) */}
             {result && !loading && (
               <VerificationResult
                 result={result}
@@ -203,17 +217,17 @@ export function App() {
           </div>
         )}
 
-        {/* Tab 2: Scam Shield */}
+        {/* Tab 2: Scam Shield (4 Engines + Demo Mode) */}
         {activeTab === 'scamShield' && (
           <ScamShield lang={lang} />
         )}
 
-        {/* Tab 3: Trending Feed */}
+        {/* Tab 3: Trending Claims Feed */}
         {activeTab === 'trending' && (
           <TrendingFeed lang={lang} onInspectClaim={handleInspectClaim} />
         )}
 
-        {/* Tab 4: Literacy Quiz */}
+        {/* Tab 4: Literacy Quiz (5 Unique per Session) */}
         {activeTab === 'quiz' && (
           <LiteracyQuiz lang={lang} />
         )}
@@ -223,9 +237,9 @@ export function App() {
           <DigitalLiteracy lang={lang} />
         )}
 
-        {/* Tab 6: Report Hoax Form */}
+        {/* Tab 6: Official Reporting Hub (§2 & §29) */}
         {activeTab === 'report' && (
-          <ReportHoax lang={lang} />
+          <OfficialReportingHub lang={lang} />
         )}
       </main>
 
@@ -241,4 +255,5 @@ export function App() {
     </div>
   );
 }
+
 export default App;

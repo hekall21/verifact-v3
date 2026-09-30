@@ -1,35 +1,110 @@
 /**
- * VerifierInput.jsx
+ * src/components/verifier/VerifierInput.jsx
  *
- * Kolom masukan utama dengan deteksi instan format (URL / teks klaim / pesan berantai),
- * penanganan invalid URL secara eksplisit, dan tombol contoh pengujian cepat.
+ * VeriFact ID 4.2 — Smart Input Component
+ *
+ * Fitur (§33 & §34):
+ * - Auto-detection terpadu:
+ *   1. URL terdeteksi (https://... / domain)
+ *   2. Nomor telepon terdeteksi (08xx / +62xx)
+ *   3. Nomor rekening terdeteksi (digit perbankan 8-18 digit)
+ *   4. Pesan / klaim terdeteksi (narasi teks panjang)
+ * - Quick examples: URL Berita, Pesan WhatsApp, URL Phishing, Klaim Viral
+ * - Input textarea besar yang nyaman dan responsif
  */
 
 import React, { useState, useEffect } from 'react';
-import { SearchIcon, LinkIcon, FileTextIcon, AlertTriangleIcon, RefreshIcon, XIcon } from '../common/Icons.jsx';
-import { classifyInput } from '../../utils/urlDetector.js';
+import { SearchIcon, LinkIcon, FileTextIcon, AlertTriangleIcon, RefreshIcon, XIcon, PhoneIcon, CreditCardIcon } from '../common/Icons.jsx';
+import { classifyInput, isNewsHomepageUrl } from '../../utils/urlDetector.js';
 import { t } from '../../i18n/index.js';
+
+export function detectInputKind(text = '') {
+  const clean = String(text || '').trim();
+  if (!clean) return { kind: 'empty', label: 'Masukkan URL atau teks informasi' };
+
+  // 1. Cek URL
+  const urlClass = classifyInput(clean);
+  if (urlClass.kind === 'url') {
+    return {
+      kind: 'url',
+      label: urlClass.isNewsHomepage ? 'Halaman Utama Berita Terdeteksi' : 'URL Terdeteksi',
+      icon: 'url',
+      color: urlClass.isNewsHomepage ? 'amber' : 'emerald',
+      detail: urlClass.domain,
+    };
+  }
+  if (urlClass.kind === 'invalid-url') {
+    return {
+      kind: 'invalid-url',
+      label: 'Format URL Tidak Lengkap / Tidak Valid',
+      icon: 'warning',
+      color: 'rose',
+    };
+  }
+
+  // 2. Cek Nomor Telepon Indonesia (08xx / +62xx)
+  const phoneNormalized = clean.replace(/[\s\-().+]+/g, '');
+  if (/^(08|628)\d{7,12}$/.test(phoneNormalized)) {
+    return {
+      kind: 'phone',
+      label: 'Nomor Telepon Terdeteksi',
+      icon: 'phone',
+      color: 'amber',
+      detail: phoneNormalized,
+    };
+  }
+
+  // 3. Cek Nomor Rekening (Digit murni 8-18 angka tanpa kata-kata)
+  if (/^\d{8,18}$/.test(clean.replace(/[\s.-]+/g, '')) && !clean.includes(' ')) {
+    return {
+      kind: 'account',
+      label: 'Nomor Rekening Terdeteksi',
+      icon: 'account',
+      color: 'emerald',
+      detail: clean,
+    };
+  }
+
+  // 4. Default: Teks Pesan / Narasi Klaim
+  return {
+    kind: 'text',
+    label: clean.length > 80 ? 'Pesan / Narasi Terdeteksi' : 'Klaim Teks Terdeteksi',
+    icon: 'text',
+    color: 'blue',
+  };
+}
 
 export function VerifierInput({
   input,
   setInput,
   onVerify,
   loading,
-  lang,
+  lang = 'id',
   onClear,
 }) {
   const [detection, setDetection] = useState({ kind: 'empty' });
 
   useEffect(() => {
-    const res = classifyInput(input);
-    setDetection(res);
+    setDetection(detectInputKind(input));
   }, [input]);
 
-  const examples = [
-    { label: lang === 'id' ? 'Tautan Berita' : 'News Link', value: 'https://kompas.com/read/2026/03/12/bansos-pkh-tahap-satu-cair' },
-    { label: lang === 'id' ? 'Undangan APK' : 'APK Invite', value: 'Surat Undangan Pernikahan Digital.apk mohon diinstall dan dibuka' },
-    { label: lang === 'id' ? 'Prediksi Gempa' : 'Earthquake Warning', value: 'BMKG memperingatkan gempa megathrust 9.0 SR akan melanda malam ini' },
-    { label: lang === 'id' ? 'Akun Game & Rekber' : 'Game Account Escrow', value: 'Jual akun Mobile Legends spek sultan monsep all unbind rekber pulber murah' },
+  const quickExamples = [
+    {
+      label: lang === 'id' ? 'URL Berita' : 'News URL',
+      value: 'https://news.detik.com/berita/d-7561234/menkes-pastikan-vaksinasi-baru-gratis-untuk-lansia',
+    },
+    {
+      label: lang === 'id' ? 'Pesan WhatsApp' : 'WhatsApp Scam',
+      value: 'Pemberitahuan! Rekening bank Anda akan diblokir dalam 24 jam. Segera verifikasi kode OTP Anda melalui link: https://login-bank-example.invalid/auth',
+    },
+    {
+      label: lang === 'id' ? 'URL Phishing' : 'Phishing URL',
+      value: 'https://login-bank-example.invalid/login.php',
+    },
+    {
+      label: lang === 'id' ? 'Klaim Viral' : 'Viral Claim',
+      value: 'BLT Rp5 juta akan diberikan kepada semua warga mulai Oktober',
+    },
   ];
 
   const handleSubmit = (e) => {
@@ -38,50 +113,50 @@ export function VerifierInput({
     onVerify(input);
   };
 
+  const renderBadgeIcon = () => {
+    switch (detection.icon) {
+      case 'url':
+        return <LinkIcon className="w-3.5 h-3.5 text-emerald-500" />;
+      case 'phone':
+        return <PhoneIcon className="w-3.5 h-3.5 text-amber-500" />;
+      case 'account':
+        return <CreditCardIcon className="w-3.5 h-3.5 text-emerald-500" />;
+      case 'warning':
+        return <AlertTriangleIcon className="w-3.5 h-3.5 text-rose-500" />;
+      default:
+        return <FileTextIcon className="w-3.5 h-3.5 text-blue-500" />;
+    }
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-4">
-      <form onSubmit={handleSubmit} className="relative rounded-2xl p-2 transition-all shadow-lg"
+      <form
+        onSubmit={handleSubmit}
+        className="relative rounded-2xl p-2.5 transition-all shadow-lg border"
         style={{
           backgroundColor: 'var(--vf-surface)',
-          border: '1px solid var(--vf-border)',
+          borderColor: 'var(--vf-border)',
         }}
       >
-        {/* Dynamic Format Detection Badge */}
-        <div className="flex items-center justify-between px-3 py-1.5 border-b mb-2"
+        {/* Dynamic Detection Bar */}
+        <div
+          className="flex items-center justify-between px-3 py-1.5 border-b mb-2"
           style={{ borderColor: 'var(--vf-border)' }}
         >
           <div className="flex items-center space-x-2 text-xs">
-            {detection.kind === 'url' && (
-              <span className="flex items-center space-x-1.5 font-semibold text-emerald-500">
-                <LinkIcon className="w-3.5 h-3.5" />
-                <span>{t(lang, 'verifier.detectedType.url')}</span>
-                {detection.platform && (
-                  <span className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                    {detection.platform.label}
-                  </span>
-                )}
-                {detection.isShortener && (
-                  <span className="px-1.5 py-0.5 text-[10px] rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                    URL Shortener
+            {detection.kind !== 'empty' ? (
+              <span className="flex items-center space-x-1.5 font-semibold" style={{ color: 'var(--vf-text)' }}>
+                {renderBadgeIcon()}
+                <span>{detection.label}</span>
+                {detection.detail && (
+                  <span className="px-2 py-0.5 text-[10px] font-mono rounded bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                    {detection.detail}
                   </span>
                 )}
               </span>
-            )}
-            {detection.kind === 'invalid-url' && (
-              <span className="flex items-center space-x-1.5 font-semibold text-rose-500">
-                <AlertTriangleIcon className="w-3.5 h-3.5" />
-                <span>{t(lang, 'verifier.invalidUrlError.title')}</span>
-              </span>
-            )}
-            {detection.kind === 'text' && (
-              <span className="flex items-center space-x-1.5 font-semibold text-blue-500">
-                <FileTextIcon className="w-3.5 h-3.5" />
-                <span>{t(lang, 'verifier.detectedType.text')}</span>
-              </span>
-            )}
-            {detection.kind === 'empty' && (
+            ) : (
               <span className="text-[11px]" style={{ color: 'var(--vf-text-muted)' }}>
-                {t(lang, 'verifier.detectedType.empty')}
+                {lang === 'id' ? 'Tempel URL atau ketik informasi yang ingin diperiksa' : 'Paste URL or type information to verify'}
               </span>
             )}
           </div>
@@ -90,7 +165,7 @@ export function VerifierInput({
             <button
               type="button"
               onClick={onClear}
-              className="text-xs px-2 py-0.5 rounded hover:opacity-75 flex items-center space-x-1"
+              className="text-xs px-2 py-0.5 rounded hover:opacity-75 flex items-center space-x-1 transition-opacity"
               style={{ color: 'var(--vf-text-muted)' }}
               title={t(lang, 'verifier.clearButton')}
             >
@@ -100,78 +175,78 @@ export function VerifierInput({
           )}
         </div>
 
-        {/* Text Area */}
-        <textarea
-          rows={3}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={t(lang, 'verifier.inputPlaceholder')}
-          className="w-full px-3 py-2 bg-transparent text-sm md:text-base resize-none focus:outline-none placeholder:opacity-50"
-          style={{ color: 'var(--vf-text)' }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-              handleSubmit(e);
+        {/* Big Input Area */}
+        <div className="relative">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit(e);
+              }
+            }}
+            rows={3}
+            placeholder={
+              lang === 'id'
+                ? 'Tempel URL berita atau masukkan pesan yang ingin diperiksa...'
+                : 'Paste news URL or enter message to verify...'
             }
-          }}
-        />
+            className="w-full bg-transparent px-3 py-2 text-sm sm:text-base resize-none focus:outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
+            style={{
+              color: 'var(--vf-text)',
+              lineHeight: 1.5,
+            }}
+          />
+        </div>
 
-        {/* Invalid URL Warning Banner */}
-        {detection.kind === 'invalid-url' && (
-          <div className="mx-2 mb-2 p-2.5 rounded-lg text-xs flex items-start space-x-2 bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-            <AlertTriangleIcon className="w-4 h-4 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold">{t(lang, 'verifier.invalidUrlError.title')}</p>
-              <p className="opacity-90">{t(lang, 'verifier.invalidUrlError.desc')}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Action Row */}
-        <div className="flex items-center justify-between px-2 pt-1 border-t"
+        {/* Action Button & Shortcuts */}
+        <div
+          className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 px-2 border-t"
           style={{ borderColor: 'var(--vf-border)' }}
         >
-          <span className="text-[11px] hidden sm:block" style={{ color: 'var(--vf-text-muted)' }}>
-            Tekan <kbd className="px-1.5 py-0.5 rounded border text-[10px]" style={{ borderColor: 'var(--vf-border)' }}>Ctrl</kbd> + <kbd className="px-1.5 py-0.5 rounded border text-[10px]" style={{ borderColor: 'var(--vf-border)' }}>Enter</kbd> untuk verifikasi instan
-          </span>
+          <div className="text-[11px]" style={{ color: 'var(--vf-text-muted)' }}>
+            Tekan <kbd className="px-1.5 py-0.5 rounded border text-[10px] font-mono bg-slate-500/10 border-slate-500/30">Enter ↵</kbd> untuk mulai analisis
+          </div>
 
-          <button
-            type="submit"
-            disabled={!input.trim() || loading || detection.kind === 'invalid-url'}
-            className="ml-auto px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold text-white transition-all shadow-md flex items-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-95"
-            style={{
-              backgroundColor: 'var(--vf-primary)',
-            }}
-          >
-            {loading ? (
-              <>
-                <RefreshIcon className="w-4 h-4 vf-spin" />
-                <span>{t(lang, 'verifier.checkingButton')}</span>
-              </>
-            ) : (
-              <>
-                <SearchIcon className="w-4 h-4" />
-                <span>{t(lang, 'verifier.checkButton')}</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center space-x-2 self-end sm:self-auto">
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              className="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white transition-all shadow-md flex items-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 active:scale-98"
+              style={{ backgroundColor: 'var(--vf-primary)' }}
+            >
+              {loading ? (
+                <>
+                  <RefreshIcon className="w-4 h-4 vf-spin" />
+                  <span>{lang === 'id' ? 'Menganalisis Bukti...' : 'Analyzing Evidence...'}</span>
+                </>
+              ) : (
+                <>
+                  <SearchIcon className="w-4 h-4" />
+                  <span>{lang === 'id' ? 'Analisis Sekarang' : 'Analyze Now'}</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </form>
 
-      {/* Quick Example Chips */}
+      {/* Quick Examples (§33) */}
       <div className="flex flex-wrap items-center gap-2 pt-1">
-        <span className="text-xs font-semibold" style={{ color: 'var(--vf-text-secondary)' }}>
-          {t(lang, 'verifier.exampleTitle')}
+        <span className="text-xs font-semibold" style={{ color: 'var(--vf-text-muted)' }}>
+          {lang === 'id' ? 'Contoh Cepat:' : 'Quick Examples:'}
         </span>
-        {examples.map((ex, idx) => (
+        {quickExamples.map((ex, idx) => (
           <button
             key={idx}
             type="button"
             onClick={() => setInput(ex.value)}
-            className="text-xs px-2.5 py-1 rounded-lg transition-colors hover:opacity-85 font-medium"
+            className="text-xs px-3 py-1.5 rounded-xl border transition-all hover:border-indigo-400 active:scale-95"
             style={{
-              backgroundColor: 'var(--vf-surface-muted)',
+              backgroundColor: 'var(--vf-surface)',
+              borderColor: 'var(--vf-border)',
               color: 'var(--vf-text-secondary)',
-              border: '1px solid var(--vf-border)',
             }}
           >
             {ex.label}
@@ -181,3 +256,5 @@ export function VerifierInput({
     </div>
   );
 }
+
+export default VerifierInput;

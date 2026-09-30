@@ -159,6 +159,57 @@ export function inspectUrl(url) {
 /**
  * Titik masuk utama.
  */
+export function isNewsHomepageUrl(urlObj) {
+  if (!urlObj || !urlObj.hostname) return false;
+  const hostname = urlObj.hostname.toLowerCase().replace(/^www\./, '');
+  const pathname = urlObj.pathname.trim().replace(/\/+$/, '') || '/';
+
+  const KNOWN_NEWS_DOMAINS = [
+    'detik.com',
+    'news.detik.com',
+    'finance.detik.com',
+    'inet.detik.com',
+    'hot.detik.com',
+    'sport.detik.com',
+    'oto.detik.com',
+    'kompas.com',
+    'kompas.id',
+    'tempo.co',
+    'cnnindonesia.com',
+    'tribunnews.com',
+    'liputan6.com',
+    'antaranews.com',
+    'republika.co.id',
+    'sindonews.com',
+    'jawapos.com',
+    'kumparan.com',
+    'idntimes.com',
+    'merdeka.com',
+    'tirto.id',
+    'suara.com',
+    'viva.co.id',
+    'okezone.com',
+    'cnbcindonesia.com',
+  ];
+
+  const isNewsDomain = KNOWN_NEWS_DOMAINS.some(
+    (d) => hostname === d || hostname.endsWith('.' + d)
+  );
+
+  if (!isNewsDomain) return false;
+
+  const homepagePaths = ['', '/', '/index', '/index.html', '/index.php', '/home', '/berita'];
+  if (homepagePaths.includes(pathname)) return true;
+
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length === 0) return true;
+  if (segments.length === 1 && ['news', 'berita', 'nasional', 'internasional', 'ekonomi', 'olahraga', 'politik', 'metro'].includes(segments[0])) {
+    return true;
+  }
+
+  return false;
+}
+
 export function classifyInput(raw) {
   const text = String(raw ?? '').trim();
   if (!text) return { kind: 'empty', raw: text };
@@ -170,6 +221,7 @@ export function classifyInput(raw) {
     const url = parsed.url;
     const platform = detectPlatform(url.hostname);
     const inspection = inspectUrl(url);
+    const isHomepage = isNewsHomepageUrl(url);
     return {
       kind: 'url',
       raw: text,
@@ -181,6 +233,7 @@ export function classifyInput(raw) {
       scheme: url.protocol.replace(':', ''),
       platform,
       signals: inspection.signals,
+      isNewsHomepage: isHomepage,
     };
   }
 
@@ -190,3 +243,4 @@ export function classifyInput(raw) {
 
   return { kind: 'text', raw: text, length: text.length };
 }
+

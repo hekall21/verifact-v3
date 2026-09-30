@@ -1,13 +1,13 @@
 /**
  * server/index.mjs
  *
- * VeriFact ID 4.1 — Evidence Intelligence & Threat Intelligence Platform
+ * VeriFact ID 4.2 — Evidence Intelligence & Threat Intelligence Platform
  * Backend server Node.js dengan:
- * - Backend Article Fetcher (POST /api/v1/article, POST /api/v4/article)
- * - SSRF Protection (block private IPs, localhost, redirect abuse)
+ * - Multi-Strategy Article Fetcher (POST /api/v1/article, POST /api/v4/article)
+ * - Strict SSRF Protection (RFC1918 verified, private host checks)
  * - Rate limiting per IP
  * - Structured logging
- * - API endpoints v4.1
+ * - API endpoints v4.2
  */
 
 import http from 'node:http';
@@ -73,8 +73,8 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'ok',
-      service: 'VeriFact ID 4.1 — Evidence & Threat Intelligence Platform',
-      version: '4.1.0',
+      service: 'VeriFact ID 4.2 — Evidence & Threat Intelligence Platform',
+      version: '4.2.0',
       timestamp: new Date().toISOString(),
     }));
     return;

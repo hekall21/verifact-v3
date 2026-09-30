@@ -9,7 +9,7 @@ export default {
     name: 'VeriFact ID',
     tagline: 'Transparent Information Verification & Cyber Defense Platform',
     subtitle: 'Inspect news URLs, viral claims, chain messages, bank accounts, and contact numbers before you trust.',
-    badge: 'Version 3.0 Enterprise',
+    badge: 'v4.2 Pro',
     demoModeBadge: 'Local Analysis Mode (API Ready)',
     offlineNotice: 'Running in self-contained mode with zero external cloud dependencies.',
   },
@@ -19,7 +19,7 @@ export default {
     trending: 'Trending Claims',
     quiz: 'Literacy Quiz',
     literacy: 'Critical Guide',
-    report: 'Report Hoax',
+    report: 'Official Reporting',
     methodology: 'Methodology',
   },
   theme: {

@@ -66,7 +66,7 @@ export function Navbar({
                     border: '1px solid color-mix(in srgb, var(--vf-primary) 30%, transparent)',
                   }}
                 >
-                  v3.0
+                  v4.2 Pro
                 </span>
               </div>
               <p className="text-[11px] leading-none hidden sm:block" style={{ color: 'var(--vf-text-muted)' }}>

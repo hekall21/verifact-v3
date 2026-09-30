@@ -1,0 +1,252 @@
+/**
+ * src/services/threatIntel/demoFixtures.js
+ *
+ * VeriFact ID 4.2 — Demo Fixtures & Test Mode
+ *
+ * Sesuai Aturan Integritas Data (§17 & §18):
+ * - DILARANG menggunakan nomor telepon atau rekening orang sungguhan sebagai contoh penipuan.
+ * - Seluruh data uji diberi label eksplisit: "SIMULASI / DATA UJI".
+ * - URL phishing uji coba menggunakan domain standar RFC 2606 (.invalid)
+ *   yang dijamin tidak merujuk ke situs web nyata di internet.
+ */
+
+export const DEMO_FIXTURES = {
+  phone: [
+    {
+      id: 'demo-phone-safe',
+      label: 'Simulasi Nomor Aman (Format Valid)',
+      value: '0812-0000-0001',
+      description: 'Nomor berformat seluler normal tanpa catatan laporan kecurigaan.',
+      expectedStatus: 'NO_REPORT_FOUND',
+      isSimulation: true,
+      simulationData: {
+        valid: true,
+        phoneNumber: '081200000001',
+        formatted: '0812-0000-0001',
+        carrier: 'Telkomsel',
+        lineType: 'Mobile Seluler (Prabayar/Pascabayar)',
+        status: 'NO_REPORT_FOUND',
+        riskScore: 10,
+        riskLevel: 'LOW',
+        isSimulation: true,
+        simulationBadge: 'SIMULASI / DATA UJI',
+        tags: ['Data Uji Coba', 'Simulasi'],
+        reportCount: 0,
+        category: null,
+        sourcesChecked: [
+          { name: 'AduanNomor.id (Komdigi RI)', status: 'MANUAL_REFERENCE', url: 'https://aduannomor.id' },
+          { name: 'National Telecommunication Prefix Map', status: 'LIVE_CHECKED' },
+          { name: 'Third-Party Spam Feed API', status: 'NOT_CONFIGURED' },
+        ],
+        warningMessage: 'Tidak ditemukan catatan laporan penipuan untuk nomor simulasi ini.',
+        disclaimer: 'SIMULASI: Data ini merupakan contoh pengujian antarmuka. Pada nomor nyata, status "Tidak Ditemukan Laporan" BUKAN jaminan mutlak nomor aman.',
+        observations: [
+          'SIMULASI: Format nomor seluler nasional valid',
+          'SIMULASI: Operator teridentifikasi berdasarkan alokasi prefiks resmi',
+          'SIMULASI: Tidak ada catatan laporan aduan aktif pada database rujukan',
+        ],
+      },
+    },
+    {
+      id: 'demo-phone-scam',
+      label: 'Simulasi Nomor Dilaporkan (Modus APK / Vishing)',
+      value: '0812-0000-9999',
+      description: 'Contoh simulasi nomor yang memiliki riwayat aduan social engineering.',
+      expectedStatus: 'SIMULATED_THREAT',
+      isSimulation: true,
+      simulationData: {
+        valid: true,
+        phoneNumber: '081200009999',
+        formatted: '0812-0000-9999',
+        carrier: 'Telkomsel',
+        lineType: 'Mobile Seluler',
+        status: 'BERISIKO TINGGI',
+        statusCode: 'SIMULATED_THREAT',
+        riskScore: 92,
+        riskLevel: 'CRITICAL',
+        isSimulation: true,
+        simulationBadge: 'SIMULASI / BUKAN DATA NYATA',
+        tags: ['Simulasi Modus APK', 'Simulasi Social Engineering'],
+        reportCount: 42,
+        category: 'Simulasi Modus Phishing APK via WhatsApp',
+        details: 'SIMULASI: Contoh skenario nomor yang dilaporkan mengirim file APK undangan palsu untuk mencuri SMS OTP.',
+        sourcesChecked: [
+          { name: 'AduanNomor.id (Komdigi RI)', status: 'MANUAL_REFERENCE', url: 'https://aduannomor.id' },
+          { name: 'National Telecommunication Prefix Map', status: 'LIVE_CHECKED' },
+          { name: 'Simulation Threat Intelligence Corpus', status: 'LIVE_CHECKED' },
+        ],
+        warningMessage: 'PERINGATAN SIMULASI: Nomor ini disimulasikan sebagai nomor penipuan dengan 42 laporan aduan fiktif untuk uji antarmuka.',
+        disclaimer: 'DATA SIMULASI: Ini adalah data pengujian buatan (dummy), bukan nomor korban atau pelaku sebenarnya.',
+        observations: [
+          'SIMULASI: Terdeteksi pola penyebaran file aplikasi berbahaya',
+          'SIMULASI: Meniru identitas layanan publik tanpa izin resmi',
+        ],
+      },
+    },
+  ],
+
+  account: [
+    {
+      id: 'demo-account-safe',
+      label: 'Simulasi Rekening Bersih (Format Bank Valid)',
+      value: '0000-1111-2222',
+      description: 'Contoh rekening dengan format standar perbankan tanpa aduan penipuan.',
+      expectedStatus: 'NO_REPORT_FOUND',
+      isSimulation: true,
+      simulationData: {
+        valid: true,
+        accountNumber: '000011112222',
+        formatted: '0000-1111-2222',
+        bank: 'BCA (Simulasi)',
+        status: 'NO_REPORT_FOUND',
+        riskScore: 10,
+        riskLevel: 'LOW',
+        isSimulation: true,
+        simulationBadge: 'SIMULASI / DATA UJI',
+        tags: ['Format Valid', 'Simulasi'],
+        reportCount: 0,
+        category: null,
+        sourcesChecked: [
+          { name: 'CekRekening.id (Komdigi RI)', status: 'MANUAL_REFERENCE', url: 'https://cekrekening.id' },
+          { name: 'National Bank Account Structure Inspector', status: 'LIVE_CHECKED' },
+          { name: 'Financial Scam Telemetry Feed', status: 'NOT_CONFIGURED' },
+        ],
+        warningMessage: 'Tidak ditemukan catatan laporan penipuan pada basis data rujukan untuk rekening simulasi ini.',
+        disclaimer: 'SIMULASI: Hasil ini untuk pengujian. Pada transaksi riil, ketiadaan laporan BUKAN jaminan mutlak rekening bebas risiko.',
+        observations: [
+          'SIMULASI: Struktur panjang nomor rekening sesuai pola perbankan nasional',
+          'SIMULASI: Tidak ada catatan aduan penipuan pada portal rujukan',
+        ],
+      },
+    },
+    {
+      id: 'demo-account-scam',
+      label: 'Simulasi Rekening Dilaporkan (Penipuan Belanja Fiktif)',
+      value: '9999-8888-7777',
+      description: 'Contoh simulasi rekening penampung dana penipuan online shop.',
+      expectedStatus: 'SIMULATED_THREAT',
+      isSimulation: true,
+      simulationData: {
+        valid: true,
+        accountNumber: '999988887777',
+        formatted: '9999-8888-7777',
+        bank: 'Bank Mandiri (Simulasi)',
+        status: 'BERISIKO TINGGI',
+        statusCode: 'SIMULATED_THREAT',
+        riskScore: 95,
+        riskLevel: 'CRITICAL',
+        isSimulation: true,
+        simulationBadge: 'SIMULASI / BUKAN DATA NYATA',
+        tags: ['Simulasi Penipuan Finansial', 'Simulasi Belanja Online'],
+        reportCount: 38,
+        category: 'Simulasi Penipuan Belanja Online & Jual Beli Fiktif',
+        details: 'SIMULASI: Contoh rekening penampung transfer dana barang fiktif untuk uji antarmuka.',
+        sourcesChecked: [
+          { name: 'CekRekening.id (Komdigi RI)', status: 'MANUAL_REFERENCE', url: 'https://cekrekening.id' },
+          { name: 'National Bank Account Structure Inspector', status: 'LIVE_CHECKED' },
+          { name: 'Simulation Threat Intelligence Corpus', status: 'LIVE_CHECKED' },
+        ],
+        warningMessage: 'PERINGATAN SIMULASI: Rekening ini disimulasikan memiliki 38 aduan penipuan transfer dana belanja online.',
+        disclaimer: 'DATA SIMULASI: Ini adalah data pengujian rekayasa, bukan nomor rekening asli milik nasabah perbankan.',
+        observations: [
+          'SIMULASI: Riwayat aduan transaksi tanpa pengiriman barang',
+          'SIMULASI: Rekening penampung transaksi bermasalah',
+        ],
+      },
+    },
+  ],
+
+  url: [
+    {
+      id: 'demo-url-phishing',
+      label: 'Simulasi URL Phishing (.invalid RFC 2606)',
+      value: 'https://login-bank-example.invalid/verify-account',
+      description: 'Tautan uji coba phishing aman menggunakan domain standar .invalid yang tidak ada di internet nyata.',
+      expectedStatus: 'PHISHING',
+      isSimulation: true,
+      simulationData: {
+        valid: true,
+        url: 'https://login-bank-example.invalid/verify-account',
+        domain: 'login-bank-example.invalid',
+        status: 'TERDETEKSI PHISHING',
+        statusCode: 'PHISHING',
+        riskScore: 96,
+        riskLevel: 'CRITICAL',
+        isSimulation: true,
+        simulationBadge: 'SIMULASI / DOMAIN .INVALID',
+        threatTypes: ['Simulasi Peniruan Halaman Login Perbankan', 'Simulasi Pencurian Kredensial'],
+        impersonatedBrand: 'Institusi Perbankan (Simulasi)',
+        sslInfo: {
+          hasHttps: true,
+          explanation: 'Situs menggunakan HTTPS. PENTING: HTTPS HANYA mengenkripsi transmisi data, bukan bukti bahwa pemilik situs jujur. 80%+ situs phishing modern juga memiliki sertifikat HTTPS.',
+        },
+        indicators: [
+          'SIMULASI: Domain menggunakan kata kunci login perbankan pada domain tidak resmi',
+          'SIMULASI: Halaman dirancang untuk mencuri kata sandi dan kode PIN',
+          'Domain aman .invalid (RFC 2606) untuk keperluan pengujian keamanan tanpa risiko',
+        ],
+        sourcesChecked: [
+          { name: 'Google Safe Browsing API', status: 'NOT_CONFIGURED' },
+          { name: 'Structural & Typosquatting Engine', status: 'LIVE_CHECKED' },
+          { name: 'RFC 2606 Safe Test Environment', status: 'LIVE_CHECKED' },
+        ],
+        warningMessage: 'PERINGATAN SIMULASI PHISHING: Tautan ini menyimulasikan situs pencurian data kredensial login perbankan.',
+        disclaimer: 'SIMULASI AMAN: Domain .invalid tidak dapat didaftarkan di internet publik dan dijamin aman untuk pengujian.',
+      },
+    },
+    {
+      id: 'demo-url-malware',
+      label: 'Simulasi URL Malware APK (.invalid RFC 2606)',
+      value: 'https://update-system-example.invalid/surat-undangan.apk',
+      description: 'Simulasi unduhan file eksekusi .apk berbahaya pada domain aman .invalid.',
+      expectedStatus: 'MALWARE',
+      isSimulation: true,
+      simulationData: {
+        valid: true,
+        url: 'https://update-system-example.invalid/surat-undangan.apk',
+        domain: 'update-system-example.invalid',
+        status: 'TERDETEKSI MALWARE',
+        statusCode: 'MALWARE',
+        riskScore: 98,
+        riskLevel: 'CRITICAL',
+        isSimulation: true,
+        simulationBadge: 'SIMULASI / DOMAIN .INVALID',
+        threatTypes: ['Simulasi Distribusi Malware APK Android'],
+        impersonatedBrand: null,
+        sslInfo: {
+          hasHttps: true,
+          explanation: 'Koneksi TLS aktif, namun mengunduh muatan file aplikasi mencurigakan.',
+        },
+        indicators: [
+          'SIMULASI: Tautan mengarah langsung ke unduhan file .apk di luar Google Play Store resmi',
+          'SIMULASI: Karakteristik modus malware pencuri SMS verifikasi OTP',
+        ],
+        sourcesChecked: [
+          { name: 'Google Safe Browsing API', status: 'NOT_CONFIGURED' },
+          { name: 'Direct Payload & Extension Inspector', status: 'LIVE_CHECKED' },
+        ],
+        warningMessage: 'PERINGATAN SIMULASI MALWARE: Tautan ini disimulasikan menyebarkan file berbahaya .apk.',
+        disclaimer: 'SIMULASI AMAN: Menggunakan domain .invalid yang tidak membahayakan sistem penguji.',
+      },
+    },
+  ],
+
+  message: [
+    {
+      id: 'demo-msg-scam',
+      label: 'Simulasi Pesan Penipuan & Pemblokiran Akun',
+      value: 'Pemberitahuan Resmi! Rekening bank Anda akan diblokir dalam 24 jam karena aktivitas mencurigakan. Segera verifikasi kode OTP Anda melalui link berikut: https://login-bank-example.invalid/auth',
+      description: 'Pesan mengandung kombinasi urgensi, ancaman pemblokiran, permintaan OTP, dan URL tiruan.',
+      expectedStatus: 'HIGH',
+      isSimulation: true,
+    },
+    {
+      id: 'demo-msg-safe',
+      label: 'Simulasi Pesan Percakapan Normal',
+      value: 'Halo, besok jam 10 pagi ada jadwal presentasi proyek di kampus. Jangan lupa bawa salinan dokumen ya.',
+      description: 'Pesan teks biasa tanpa indikator ancaman manipulasi psikologis.',
+      expectedStatus: 'LOW',
+      isSimulation: true,
+    },
+  ],
+};

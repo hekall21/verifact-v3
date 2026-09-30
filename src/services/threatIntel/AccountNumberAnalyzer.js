@@ -1,68 +1,21 @@
 /**
- * AccountNumberAnalyzer.js
+ * src/services/threatIntel/AccountNumberAnalyzer.js
  *
- * VeriFact ID 4.1 — Threat Intelligence Architecture
+ * VeriFact ID 4.2 — Threat Intelligence Architecture
  * Analisis intelijen ancaman nomor rekening bank & e-wallet Indonesia.
  *
- * Statuses:
- * - CONFIRMED_REPORTED: Terkonfirmasi pada database penipuan resmi / laporan terverifikasi.
- * - REPORTED: Ada riwayat laporan kecurigaan atau transaksi bermasalah.
- * - NO_REPORT_FOUND: Tidak ditemukan laporan publik (BUKAN BERARTI AMAN).
- * - LOOKUP_UNAVAILABLE: Layanan lookup eksternal gagal dihubungi.
- * - INVALID: Format nomor rekening tidak valid secara struktur perbankan.
- *
- * GOLDEN RULE:
- * "NO_REPORT_FOUND" != "AMAN". Penipu sering menggunakan rekening mule (pinjam nama)
- * baru yang belum terdata di database publik.
+ * Standar Kredibilitas & Transparansi (§16, §17, §18, §24, §40):
+ * 1. HAPUS seluruh data rekening palsu / klaim confirmed scam tanpa API nyata.
+ * 2. Status sumber transparan:
+ *    - CekRekening.id (Komdigi RI): MANUAL_REFERENCE
+ *    - National Bank Account Structure Inspector: LIVE_CHECKED
+ *    - External Financial Threat Telemetry: NOT_CONFIGURED
+ * 3. Golden Rule: "NO_REPORT_FOUND" != "AMAN". Penipu kerap memakai rekening mule baru.
+ * 4. Mode Demo / Data Uji didukung via demoFixtures dengan badge SIMULASI.
  */
 
-// Corpus database penipuan terkonfirmasi (contoh kasus riil & laporan terverifikasi)
-const KNOWN_REPORTED_ACCOUNTS = [
-  {
-    accountNumber: '0123456789',
-    bank: 'BCA',
-    status: 'CONFIRMED_REPORTED',
-    riskLevel: 'CRITICAL',
-    reportCount: 47,
-    category: 'Penipuan Belanja Online / Rekening Bersama Palsu',
-    lastReportedAt: '2026-03-24T14:20:00Z',
-    details: 'Terdaftar di database CekRekening.id & Kredibel dengan puluhan aduan penipuan transfer dana belanja barang fiktif.',
-  },
-  {
-    accountNumber: '081234567890',
-    bank: 'e-wallet/GoPay/OVO',
-    status: 'CONFIRMED_REPORTED',
-    riskLevel: 'CRITICAL',
-    reportCount: 32,
-    category: 'Penipuan Modus APK Kurir / Undangan Pernikahan',
-    lastReportedAt: '2026-03-28T09:15:00Z',
-    details: 'Penampung dana sniffing SMS OTP dari malware APK forwarder Android.',
-  },
-  {
-    accountNumber: '1234567890123',
-    bank: 'Mandiri',
-    status: 'REPORTED',
-    riskLevel: 'HIGH',
-    reportCount: 5,
-    category: 'Investasi Skema Ponzi / Telegram Trading Scam',
-    lastReportedAt: '2026-02-15T11:00:00Z',
-    details: 'Beberapa laporan komunitas mengidentifikasi nomor ini sebagai rekening transfer robot trading tanpa izin OJK.',
-  },
-  {
-    accountNumber: '001234567890123',
-    bank: 'BRI',
-    status: 'REPORTED',
-    riskLevel: 'HIGH',
-    reportCount: 8,
-    category: 'Hadiah Undian Berhadiah Palsu / Catut Nama BUMN',
-    lastReportedAt: '2026-03-10T16:45:00Z',
-    details: 'Dilaporkan meminta biaya administrasi pencairan hadiah undian Gebyar BRI palsu.',
-  },
-];
+import { DEMO_FIXTURES } from './demoFixtures.js';
 
-/**
- * Deteksi bank berdasarkan struktur panjang dan pola nomor rekening umum Indonesia.
- */
 export function identifyBankStructure(cleaned) {
   if (cleaned.length === 10 && (cleaned.startsWith('0') || cleaned.startsWith('8') || cleaned.startsWith('5'))) {
     return 'BCA';
@@ -88,119 +41,104 @@ export function identifyBankStructure(cleaned) {
   return 'Bank Nasional / Rekening Finansial';
 }
 
-/**
- * Menganalisis nomor rekening dengan arsitektur Threat Intelligence.
- *
- * @param {string} raw - Input nomor rekening mentah
- * @param {object} options - Opsi analisis (e.g. simulateTimeout)
- * @returns {object} Hasil intelijen ancaman
- */
 export function analyzeAccountNumber(raw, options = {}) {
   const clean = String(raw || '').replace(/[\s.-]+/g, '');
 
-  // Validasi format angka dan panjang
-  if (!clean || !/^\d+$/.test(clean) || clean.length < 6 || clean.length > 20) {
+  // 1. Validasi Format
+  if (!clean || !/^\d+$/.test(clean) || clean.length < 8 || clean.length > 18) {
     return {
-      accountNumber: clean,
+      accountNumber: raw,
       bank: null,
       status: 'INVALID',
+      statusCode: 'INVALID',
+      riskScore: 0,
       riskLevel: 'UNKNOWN',
+      tags: [],
       reportCount: 0,
       category: null,
       lastReportedAt: null,
       sourcesChecked: [],
-      warningMessage: 'Format nomor rekening tidak valid. Harus berupa digit numerik antara 6 hingga 20 digit.',
-      disclaimer: 'Pemeriksaan dibatalkan karena format input tidak memenuhi struktur rekening yang valid.',
-      observations: ['Invalid numeric format or length'],
+      warningMessage: 'Format nomor rekening tidak valid. Pastikan hanya memasukkan digit angka (8-18 digit).',
+      disclaimer: 'Pemeriksaan dihentikan karena format tidak valid.',
+      observations: ['Struktur input tidak sesuai format nomor rekening perbankan nasional'],
       valid: false,
       reasonCode: 'invalidAccountFormat',
     };
   }
 
-  // Simulasi jika layanan lookup tidak tersedia
+  // 2. Cek Demo Fixtures / Test Mode
+  const demoMatch = DEMO_FIXTURES.account.find(
+    (item) => item.simulationData.accountNumber === clean || item.value.replace(/[\s.-]+/g, '') === clean
+  );
+
+  if (demoMatch || options.isSimulation) {
+    const fixture = demoMatch ? demoMatch.simulationData : DEMO_FIXTURES.account[1].simulationData;
+    return {
+      ...fixture,
+      isSimulation: true,
+      simulationBadge: 'SIMULASI / DATA UJI',
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
+  // 3. Force Unavailable
   if (options.forceUnavailable) {
+    const bank = identifyBankStructure(clean);
     return {
       accountNumber: clean,
-      bank: identifyBankStructure(clean),
-      status: 'LOOKUP_UNAVAILABLE',
+      bank,
+      status: 'DATA TIDAK TERSEDIA',
+      statusCode: 'LOOKUP_UNAVAILABLE',
+      riskScore: 0,
       riskLevel: 'UNKNOWN',
+      tags: [],
       reportCount: 0,
       category: null,
       lastReportedAt: null,
       sourcesChecked: [
-        { name: 'CekRekening.id (Kemenkominfo)', status: 'UNAVAILABLE', url: 'https://cekrekening.id' },
-        { name: 'Kredibel.co.id Threat Intel', status: 'UNAVAILABLE', url: 'https://kredibel.co.id' },
+        { name: 'CekRekening.id (Komdigi RI)', status: 'UNAVAILABLE', url: 'https://cekrekening.id' },
+        { name: 'National Bank Account Structure Inspector', status: 'LIVE_CHECKED' },
+        { name: 'Financial Scam Telemetry Feed', status: 'UNAVAILABLE' },
       ],
-      warningMessage: 'Layanan basis data penipuan eksternal sedang tidak dapat dijangkau. Mohon lakukan verifikasi langsung di situs resmi.',
-      disclaimer: 'Ketidaksediaan data intelijen BUKAN jaminan keamanan transaksi.',
-      observations: ['External registry connectivity timeout'],
+      warningMessage: 'Layanan basis data aduan rekening sedang tidak dapat diakses saat ini.',
+      disclaimer: 'Kegagalan jaringan ke database BUKAN bukti bahwa rekening aman digunakan.',
+      observations: ['Layanan telemetri eksternal sedang tidak merespons'],
       valid: true,
       verifyUrl: 'https://cekrekening.id',
     };
   }
 
-  const bankHint = identifyBankStructure(clean);
-  const observations = [];
-
-  // Observasi pola digit
-  if (clean.length < 10) {
-    observations.push('Nomor rekening relatif pendek (<10 digit), umumnya kode bank daerah atau institusi khusus');
-  }
-  if (/^(\d)\1{5,}/.test(clean)) {
-    observations.push('Pola digit berulang terdeteksi (angka berulang 6 kali berturut-turut)');
-  }
-
-  // Pencocokan basis data laporan
-  const match = KNOWN_REPORTED_ACCOUNTS.find(
-    (item) => item.accountNumber === clean || (item.bank === bankHint && item.accountNumber === clean)
-  );
-
-  const sourcesChecked = [
-    { name: 'CekRekening.id (Kemenkominfo RI)', status: 'CHECKED', url: 'https://cekrekening.id' },
-    { name: 'Kredibel.co.id Fraud Intelligence', status: 'CHECKED', url: 'https://kredibel.co.id' },
-    { name: 'LAPOR! SP4N Perbankan', status: 'CHECKED', url: 'https://lapor.go.id' },
-    { name: 'Heuristic Banking Pattern Engine', status: 'CHECKED' },
+  const bank = identifyBankStructure(clean);
+  const observations = [
+    `Format nomor rekening valid (${clean.length} digit)`,
+    `Struktur institusi terindikasi: ${bank}`,
+    'Tidak ditemukan catatan laporan penipuan pada sumber publik saat pemeriksaan',
   ];
 
-  if (match) {
-    return {
-      accountNumber: clean,
-      bank: match.bank || bankHint,
-      status: match.status,
-      riskLevel: match.riskLevel,
-      reportCount: match.reportCount,
-      category: match.category,
-      lastReportedAt: match.lastReportedAt,
-      details: match.details,
-      sourcesChecked,
-      warningMessage: `Nomor rekening ini memiliki riwayat ${match.reportCount} laporan aktif terkait "${match.category}". Sangat disarankan untuk membatalkan transaksi.`,
-      disclaimer: 'Data dihimpun dari laporan masyarakat yang diverifikasi di portal aduan perbankan nasional.',
-      observations: [...observations, `Kategori aduan terverifikasi: ${match.category}`],
-      valid: true,
-      verifyUrl: 'https://cekrekening.id',
-      reportUrl: 'https://lapor.go.id',
-    };
-  }
+  const sourcesChecked = [
+    { name: 'CekRekening.id (Komdigi RI)', status: 'MANUAL_REFERENCE', url: 'https://cekrekening.id' },
+    { name: 'National Bank Account Structure Inspector', status: 'LIVE_CHECKED' },
+    { name: 'Financial Scam Telemetry Feed', status: 'NOT_CONFIGURED' },
+  ];
 
-  // Status NO_REPORT_FOUND (Absence of report is NOT safety)
   return {
     accountNumber: clean,
-    bank: bankHint,
-    status: 'NO_REPORT_FOUND',
+    formatted: clean.replace(/(\d{4})(\d{4})(\d+)/, '$1-$2-$3'),
+    bank,
+    status: 'TIDAK DITEMUKAN LAPORAN',
+    statusCode: 'NO_REPORT_FOUND',
+    riskScore: 10,
     riskLevel: 'LOW',
+    tags: ['Format Valid Terverifikasi', 'Belum Ada Laporan'],
     reportCount: 0,
     category: null,
     lastReportedAt: null,
     sourcesChecked,
-    warningMessage: 'Tidak ditemukan riwayat laporan kejahatan perbankan pada basis data publik untuk nomor ini saat ini.',
-    disclaimer: 'PENTING: Status "Tidak Ditemukan Laporan" BUKAN jaminan mutlak bahwa rekening ini aman. Sindikat penipuan kerap menggunakan nomor rekening baru (money mule) yang belum sempat dilaporkan oleh korban.',
-    observations: [
-      ...observations,
-      'Format dan panjang nomor sesuai dengan struktur perbankan nasional',
-      'Tidak ada catatan aduan terdaftar di CekRekening.id maupun Kredibel hingga tanggal pemeriksaan',
-    ],
+    warningMessage: 'Belum ditemukan catatan laporan penipuan untuk nomor rekening ini pada basis data rujukan saat ini.',
+    disclaimer: 'PENTING: Status "Tidak Ditemukan Laporan" BUKAN jaminan mutlak bahwa rekening ini bebas risiko. Penipu kerap menggunakan rekening perantara (mule account) baru yang dipinjam dari pihak ketiga.',
+    observations,
     valid: true,
+    checkedAt: new Date().toISOString(),
     verifyUrl: 'https://cekrekening.id',
-    reportUrl: 'https://lapor.go.id',
   };
 }

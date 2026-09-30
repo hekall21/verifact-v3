@@ -1,13 +1,21 @@
 /**
- * apiClient.js
+ * src/services/apiClient.js
  *
- * Client HTTP defensif untuk berkomunikasi dengan backend /api/analyze.
- * Memiliki timeout, penanganan pembatalan (AbortController), dan fallback mulus
- * jika backend offline tanpa membuat aplikasi macet.
+ * VeriFact ID 4.2 — Defensive API Client
+ *
+ * Kebijakan Fallback Mutlak:
+ * - TEXT INPUT: Fallback lokal diizinkan (analisis klaim teks, entitas, dan korpus).
+ * - URL INPUT: DILARANG fake fallback! Jika backend retrieval gagal, laporkan
+ *   SOURCE_RETRIEVAL_UNAVAILABLE secara jujur agar pengguna tidak tertipu
+ *   seolah-olah artikel telah berhasil diverifikasi.
  */
+
+import { parseUrl } from '../utils/urlDetector.js';
 
 export async function postAnalyze(payload, options = {}) {
   const { signal, timeoutMs = 8000 } = options;
+  const rawInput = payload?.input || payload?.claimText || '';
+  const isUrlInput = parseUrl(rawInput).ok;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -31,7 +39,9 @@ export async function postAnalyze(payload, options = {}) {
         ok: false,
         status: res.status,
         error: `Server responded with ${res.status}`,
-        fallbackToLocal: true,
+        // URL input tidak boleh diam-diam fallback lokal seolah artikel terbaca
+        fallbackToLocal: !isUrlInput,
+        sourceRetrievalUnavailable: isUrlInput,
       };
     }
 
@@ -43,7 +53,9 @@ export async function postAnalyze(payload, options = {}) {
       ok: false,
       isTimeout: err.name === 'AbortError',
       error: err.message,
-      fallbackToLocal: true,
+      // URL input tidak boleh pura-pura lolos verifikasi jika backend retrieval down
+      fallbackToLocal: !isUrlInput,
+      sourceRetrievalUnavailable: isUrlInput,
     };
   }
 }

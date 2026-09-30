@@ -1,29 +1,59 @@
 /**
  * server/articleExtractor.mjs
  *
- * VeriFact ID 4.1 — Backend Article Fetcher & Content Extractor
+ * VeriFact ID 4.2 — Multi-Strategy Article Fetcher & Content Extractor
  *
- * Features:
- * - Strict SSRF Protection (initial URL & all redirect hops)
- * - Safe redirect follower (up to 5 redirects)
- * - Size limit (5 MB) & Timeout (8s AbortController)
- * - Metadata extraction: JSON-LD (Schema.org Article), OpenGraph, Meta tags, Canonical
- * - Main article text extraction avoiding ads, navbars, footers, comments
- * - Honest failure: Returns SOURCE_CONTENT_UNAVAILABLE if inaccessible
+ * Architecture:
+ * 1. Strict SSRF Protection (RFC1918 accurate CIDR ranges, loopback, link-local, redirect validation)
+ * 2. News Homepage Detection (detik.com, kompas.com, etc. root/index URLs identified honestly)
+ * 3. Multi-Strategy Article Extraction:
+ *    - Strategy 1: JSON-LD (Schema.org Article / NewsArticle / Report)
+ *    - Strategy 2: OpenGraph + HTML Meta Tags
+ *    - Strategy 3: <article> tag
+ *    - Strategy 4: <main> tag
+ *    - Strategy 5: Known Article Body Selectors (Detik, Kompas, Tempo, CNN, Tribun, Liputan6, Antara)
+ *    - Strategy 6: Generic Paragraph & Heading Extraction
+ *    - Strategy 7: Readability-style heuristics (clean noise, gather longest coherent paragraph block)
+ * 4. Dedicated News Adapters:
+ *    - DetikAdapter
+ *    - KompasAdapter
+ *    - TempoAdapter
+ *    - CNNIndonesiaAdapter
+ *    - TribunAdapter
+ *    - Liputan6Adapter
+ *    - AntaraAdapter
+ *    - GenericArticleAdapter
+ * 5. Honest failure handling: returns SOURCE_CONTENT_UNAVAILABLE without hallucinating.
  */
 
 import { URL } from 'node:url';
 
-// SSRF Protection: block private/internal/cloud metadata IPs
+// Accurate SSRF Protection: RFC1918, loopback, link-local, cloud metadata
 export function isPrivateHost(hostname) {
   const h = String(hostname || '').toLowerCase().trim();
   if (!h) return true;
+
+  // Localhost & Loopback
   if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '0.0.0.0') return true;
-  if (h.startsWith('10.') || h.startsWith('192.168.')) return true;
-  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
-  if (h.startsWith('169.254.')) return true; // Link-local / AWS / GCP metadata
-  if (h.startsWith('0.')) return true;
-  if (h.endsWith('.local') || h.endsWith('.internal') || h.endsWith('.localhost')) return true;
+  if (/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+
+  // RFC1918 Private Ranges
+  // 10.0.0.0/8
+  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+  // 172.16.0.0/12 (172.16.0.0 - 172.31.255.255)
+  if (/^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+  // 192.168.0.0/16
+  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+
+  // Link-local / Cloud metadata (169.254.0.0/16)
+  if (/^169\.254\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+
+  // Reserved 0.0.0.0/8
+  if (/^0\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h)) return true;
+
+  // Internal TLDs
+  if (h.endsWith('.local') || h.endsWith('.internal') || h.endsWith('.localhost') || h.endsWith('.test')) return true;
+
   return false;
 }
 
@@ -31,7 +61,64 @@ export function isAllowedProtocol(protocol) {
   return protocol === 'http:' || protocol === 'https:';
 }
 
-function decodeHtmlEntities(str = '') {
+/**
+ * Deteksi apakah URL merupakan halaman depan (homepage/portal root) dan bukan artikel berita spesifik.
+ */
+export function isNewsHomepage(urlObj) {
+  const hostname = urlObj.hostname.toLowerCase().replace(/^www\./, '');
+  const pathname = urlObj.pathname.trim().replace(/\/+$/, '') || '/';
+
+  const KNOWN_NEWS_DOMAINS = [
+    'detik.com',
+    'news.detik.com',
+    'finance.detik.com',
+    'inet.detik.com',
+    'hot.detik.com',
+    'sport.detik.com',
+    'oto.detik.com',
+    'kompas.com',
+    'kompas.id',
+    'tempo.co',
+    'cnnindonesia.com',
+    'tribunnews.com',
+    'liputan6.com',
+    'antaranews.com',
+    'republika.co.id',
+    'sindonews.com',
+    'jawapos.com',
+    'kumparan.com',
+    'idntimes.com',
+    'merdeka.com',
+    'tirto.id',
+    'suara.com',
+    'viva.co.id',
+    'okezone.com',
+    'cnbcindonesia.com',
+  ];
+
+  const isNewsDomain = KNOWN_NEWS_DOMAINS.some(
+    (d) => hostname === d || hostname.endsWith('.' + d)
+  );
+
+  if (!isNewsDomain) return false;
+
+  // Homepage paths
+  const homepagePaths = ['', '/', '/index', '/index.html', '/index.php', '/home', '/berita'];
+  if (homepagePaths.includes(pathname)) {
+    return true;
+  }
+
+  // Jika path sangat pendek (misal hanya kategori level 1 tanpa slug artikel)
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length === 0) return true;
+  if (segments.length === 1 && ['news', 'berita', 'nasional', 'internasional', 'ekonomi', 'olahraga', 'politik', 'metro'].includes(segments[0])) {
+    return true;
+  }
+
+  return false;
+}
+
+export function decodeHtmlEntities(str = '') {
   return str
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
@@ -45,9 +132,9 @@ function decodeHtmlEntities(str = '') {
 }
 
 /**
- * Extract JSON-LD schema.org Article / NewsArticle
+ * STRATEGY 1: JSON-LD Schema.org Article / NewsArticle
  */
-function extractJsonLd(html) {
+export function extractJsonLd(html) {
   const jsonLdRegex = /<script\s+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
   let match;
   while ((match = jsonLdRegex.exec(html)) !== null) {
@@ -63,6 +150,10 @@ function extractJsonLd(html) {
           type.includes('ClaimReview') ||
           type.includes('BlogPosting')
         ) {
+          const bodyText = typeof item.articleBody === 'string'
+            ? decodeHtmlEntities(item.articleBody).replace(/\s+/g, ' ').trim()
+            : null;
+
           return {
             title: item.headline || item.name || null,
             author: typeof item.author === 'string'
@@ -71,7 +162,7 @@ function extractJsonLd(html) {
             datePublished: item.datePublished || null,
             dateModified: item.dateModified || null,
             description: item.description || null,
-            articleBody: item.articleBody || null,
+            articleBody: bodyText,
             publisher: typeof item.publisher === 'string'
               ? item.publisher
               : item.publisher?.name || null,
@@ -79,16 +170,16 @@ function extractJsonLd(html) {
         }
       }
     } catch {
-      // Ignore JSON parse errors in individual blocks
+      // Continue to next script block if JSON parsing fails
     }
   }
   return null;
 }
 
 /**
- * Extract OpenGraph & HTML Meta tags
+ * STRATEGY 2: OpenGraph + HTML Meta Tags
  */
-function extractMeta(html) {
+export function extractMeta(html) {
   const getTag = (propOrName) => {
     const escaped = propOrName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex1 = new RegExp(`<meta\\s+[^>]*?(?:property|name)=["']${escaped}["'][^>]*?content=["']([\\s\\S]*?)["'][^>]*>`, 'i');
@@ -106,8 +197,8 @@ function extractMeta(html) {
   return {
     title: getTag('og:title') || getTag('twitter:title') || titleTag,
     description: getTag('og:description') || getTag('twitter:description') || getTag('description'),
-    author: getTag('article:author') || getTag('author') || getTag('byl'),
-    publishedAt: getTag('article:published_time') || getTag('pubdate') || getTag('date'),
+    author: getTag('article:author') || getTag('author') || getTag('byl') || getTag('dable:author'),
+    publishedAt: getTag('article:published_time') || getTag('pubdate') || getTag('date') || getTag('publishdate'),
     updatedAt: getTag('article:modified_time'),
     publisher: getTag('og:site_name') || getTag('publisher'),
     canonicalUrl,
@@ -115,11 +206,10 @@ function extractMeta(html) {
 }
 
 /**
- * Extract Main Article Body Text
+ * Clean noise elements from HTML string
  */
-function extractMainText(html) {
-  // Strip out noise sections: scripts, styles, nav, footer, header, aside, comments
-  let cleaned = html
+function cleanHtmlNoise(html) {
+  return html
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
@@ -130,43 +220,266 @@ function extractMainText(html) {
     .replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, ' ')
     .replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, ' ')
     .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, ' ');
+}
 
-  // Try finding article or main content tags first
-  let articleContent = '';
-  const articleBlockMatch =
-    cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
-    cleaned.match(/<div[^>]*?(?:class|id)=["'][^"']*(?:article-body|entry-content|post-content|story-body|detail-text)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
-    cleaned.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
-
-  const targetHtml = articleBlockMatch ? articleBlockMatch[1] : cleaned;
-
-  // Extract paragraphs & headings
-  const pMatches = targetHtml.match(/<(?:p|h[1-6]|li)[^>]*>([\s\S]*?)<\/(?:p|h[1-6]|li)>/gi) || [];
+/**
+ * Extract clean paragraphs from an HTML fragment
+ */
+function extractParagraphsFromFragment(fragmentHtml) {
+  const pMatches = fragmentHtml.match(/<(?:p|h[1-6]|li)[^>]*>([\s\S]*?)<\/(?:p|h[1-6]|li)>/gi) || [];
   const paragraphs = [];
 
   for (const block of pMatches) {
     const rawText = block.replace(/<[^>]+>/g, ' ');
     const decoded = decodeHtmlEntities(rawText).replace(/\s+/g, ' ').trim();
-    // Exclude common noise phrases (cookie banners, copyright, share buttons)
-    if (decoded.length >= 25 && !/^(baca juga|simak video|share|bagikan|copyright|hak cipta|advertisement|iklan)/i.test(decoded)) {
+    if (
+      decoded.length >= 25 &&
+      !/^(baca juga|simak video|share|bagikan|copyright|hak cipta|advertisement|iklan|pilihan editor|trending topic|tags?:)/i.test(decoded)
+    ) {
       paragraphs.push(decoded);
     }
   }
 
-  articleContent = paragraphs.join('\n\n');
+  return paragraphs.join('\n\n');
+}
 
-  // Fallback to strip all HTML if no paragraphs matched
-  if (!articleContent || articleContent.length < 50) {
-    articleContent = decodeHtmlEntities(targetHtml.replace(/<[^>]+>/g, ' '))
-      .replace(/\s+/g, ' ')
-      .trim();
+// ============================================================================
+// DEDICATED ADAPTERS FOR INDONESIAN NEWS SITES
+// ============================================================================
+
+export const DetikAdapter = {
+  name: 'DetikAdapter',
+  matches(hostname) {
+    return hostname.includes('detik.com');
+  },
+  extract(html) {
+    const cleaned = cleanHtmlNoise(html);
+    // Detik uses .detail__body-text, div.itp_bodycontent, .detail__body
+    const match =
+      cleaned.match(/<div[^>]*class=["'][^"']*(?:detail__body-text|itp_bodycontent|detail__body)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+
+    if (match) {
+      const text = extractParagraphsFromFragment(match[1]);
+      if (text && text.length > 80) return text;
+    }
+    return null;
+  },
+};
+
+export const KompasAdapter = {
+  name: 'KompasAdapter',
+  matches(hostname) {
+    return hostname.includes('kompas.com') || hostname.includes('kompas.id');
+  },
+  extract(html) {
+    const cleaned = cleanHtmlNoise(html);
+    // Kompas uses .read__content, .read__body, .col-bs10-7
+    const match =
+      cleaned.match(/<div[^>]*class=["'][^"']*(?:read__content|read__body)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+
+    if (match) {
+      const text = extractParagraphsFromFragment(match[1]);
+      if (text && text.length > 80) return text;
+    }
+    return null;
+  },
+};
+
+export const TempoAdapter = {
+  name: 'TempoAdapter',
+  matches(hostname) {
+    return hostname.includes('tempo.co');
+  },
+  extract(html) {
+    const cleaned = cleanHtmlNoise(html);
+    const match =
+      cleaned.match(/<div[^>]*class=["'][^"']*(?:detail-in|art-text)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+
+    if (match) {
+      const text = extractParagraphsFromFragment(match[1]);
+      if (text && text.length > 80) return text;
+    }
+    return null;
+  },
+};
+
+export const CNNIndonesiaAdapter = {
+  name: 'CNNIndonesiaAdapter',
+  matches(hostname) {
+    return hostname.includes('cnnindonesia.com');
+  },
+  extract(html) {
+    const cleaned = cleanHtmlNoise(html);
+    const match =
+      cleaned.match(/<div[^>]*class=["'][^"']*(?:detail-text|content-detail)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+
+    if (match) {
+      const text = extractParagraphsFromFragment(match[1]);
+      if (text && text.length > 80) return text;
+    }
+    return null;
+  },
+};
+
+export const TribunAdapter = {
+  name: 'TribunAdapter',
+  matches(hostname) {
+    return hostname.includes('tribunnews.com');
+  },
+  extract(html) {
+    const cleaned = cleanHtmlNoise(html);
+    const match =
+      cleaned.match(/<div[^>]*class=["'][^"']*(?:txt-article|side-article)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+
+    if (match) {
+      const text = extractParagraphsFromFragment(match[1]);
+      if (text && text.length > 80) return text;
+    }
+    return null;
+  },
+};
+
+export const Liputan6Adapter = {
+  name: 'Liputan6Adapter',
+  matches(hostname) {
+    return hostname.includes('liputan6.com');
+  },
+  extract(html) {
+    const cleaned = cleanHtmlNoise(html);
+    const match =
+      cleaned.match(/<div[^>]*class=["'][^"']*(?:article-content-body|article-body)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+
+    if (match) {
+      const text = extractParagraphsFromFragment(match[1]);
+      if (text && text.length > 80) return text;
+    }
+    return null;
+  },
+};
+
+export const AntaraAdapter = {
+  name: 'AntaraAdapter',
+  matches(hostname) {
+    return hostname.includes('antaranews.com');
+  },
+  extract(html) {
+    const cleaned = cleanHtmlNoise(html);
+    const match =
+      cleaned.match(/<div[^>]*class=["'][^"']*(?:post-content|article-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
+      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+
+    if (match) {
+      const text = extractParagraphsFromFragment(match[1]);
+      if (text && text.length > 80) return text;
+    }
+    return null;
+  },
+};
+
+export const GenericArticleAdapter = {
+  name: 'GenericArticleAdapter',
+  matches() {
+    return true;
+  },
+  extract(html) {
+    const cleaned = cleanHtmlNoise(html);
+
+    // Strategy 3: <article> tag
+    const articleMatch = cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    if (articleMatch) {
+      const text = extractParagraphsFromFragment(articleMatch[1]);
+      if (text && text.length > 80) return text;
+    }
+
+    // Strategy 4: <main> tag
+    const mainMatch = cleaned.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+    if (mainMatch) {
+      const text = extractParagraphsFromFragment(mainMatch[1]);
+      if (text && text.length > 80) return text;
+    }
+
+    // Strategy 5: known body selector patterns
+    const bodyClassMatch = cleaned.match(/<div[^>]*?(?:class|id)=["'][^"']*(?:article-body|entry-content|post-content|story-body|detail-text|content__article|main-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
+    if (bodyClassMatch) {
+      const text = extractParagraphsFromFragment(bodyClassMatch[1]);
+      if (text && text.length > 80) return text;
+    }
+
+    // Strategy 6: generic paragraph extraction across whole cleaned body
+    const genericText = extractParagraphsFromFragment(cleaned);
+    if (genericText && genericText.length > 80) return genericText;
+
+    // Strategy 7: Readability-style fallback (plain text extraction)
+    const stripped = decodeHtmlEntities(cleaned.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+    if (stripped.length > 100) return stripped.slice(0, 3000);
+
+    return null;
+  },
+};
+
+const NEWS_ADAPTERS = [
+  DetikAdapter,
+  KompasAdapter,
+  TempoAdapter,
+  CNNIndonesiaAdapter,
+  TribunAdapter,
+  Liputan6Adapter,
+  AntaraAdapter,
+  GenericArticleAdapter,
+];
+
+/**
+ * Execute multi-strategy extraction on HTML
+ */
+export function extractArticleContent(html, hostname = '') {
+  // Strategy 1: JSON-LD
+  const jsonLd = extractJsonLd(html);
+  if (jsonLd?.articleBody && jsonLd.articleBody.length >= 80) {
+    return {
+      text: jsonLd.articleBody,
+      strategy: 'json_ld_schema',
+      jsonLd,
+    };
   }
 
-  return articleContent;
+  // Strategy 2-7: News Adapters
+  const matchedAdapter = NEWS_ADAPTERS.find((a) => a.matches(hostname)) || GenericArticleAdapter;
+  const adapterText = matchedAdapter.extract(html);
+  if (adapterText && adapterText.length >= 60) {
+    return {
+      text: adapterText,
+      strategy: matchedAdapter.name,
+      jsonLd,
+    };
+  }
+
+  // Generic fallback if specific adapter didn't meet length
+  if (matchedAdapter !== GenericArticleAdapter) {
+    const genericText = GenericArticleAdapter.extract(html);
+    if (genericText && genericText.length >= 60) {
+      return {
+        text: genericText,
+        strategy: 'GenericArticleAdapter_fallback',
+        jsonLd,
+      };
+    }
+  }
+
+  return {
+    text: null,
+    strategy: 'none',
+    jsonLd,
+  };
 }
 
 /**
- * Fetch and extract article from URL with full SSRF and security controls
+ * Fetch and extract article from URL with full SSRF, redirect, and multi-strategy controls
  */
 export async function fetchAndExtractArticleBackend(targetUrl) {
   let currentUrl = targetUrl;
@@ -180,8 +493,8 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
     } catch {
       return {
         ok: false,
-        status: 'SOURCE_CONTENT_UNAVAILABLE',
-        reason: 'invalid_url',
+        status: 'INVALID_URL',
+        reason: 'invalid_url_syntax',
         source: { url: targetUrl },
       };
     }
@@ -204,6 +517,25 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
       };
     }
 
+    // CHECK FOR NEWS HOMEPAGE (Detik, Kompas, etc.)
+    if (isNewsHomepage(parsed)) {
+      const cleanDomain = parsed.hostname.replace(/^www\./, '');
+      return {
+        ok: false,
+        status: 'NEWS_HOMEPAGE_DETECTED',
+        isHomepage: true,
+        reason: 'news_homepage_detected',
+        domain: cleanDomain,
+        source: {
+          url: currentUrl,
+          domain: cleanDomain,
+          publisher: cleanDomain,
+          title: `Halaman Utama ${cleanDomain}`,
+        },
+        message: `DOMAIN TERDETEKSI: ${cleanDomain}. Ini adalah halaman utama situs berita, bukan URL artikel tertentu. Untuk analisis berita, masukkan URL artikel spesifik.`,
+      };
+    }
+
     if (visited.has(currentUrl)) {
       return {
         ok: false,
@@ -221,7 +553,7 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
       const response = await fetch(currentUrl, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 VeriFact-Bot/4.1',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 VeriFact-Bot/4.2',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5',
           'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
         },
@@ -275,9 +607,10 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
         };
       }
 
-      // Metadata Extraction
-      const jsonLd = extractJsonLd(html);
+      // Metadata Extraction (JSON-LD + OpenGraph)
       const meta = extractMeta(html);
+      const extraction = extractArticleContent(html, parsed.hostname);
+      const jsonLd = extraction.jsonLd;
 
       const title = jsonLd?.title || meta.title || parsed.pathname.replace(/[/_-]/g, ' ').trim() || parsed.hostname;
       const description = jsonLd?.description || meta.description || '';
@@ -287,8 +620,7 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
       const publisher = jsonLd?.publisher || meta.publisher || parsed.hostname.replace(/^www\./, '');
       const canonicalUrl = meta.canonicalUrl || currentUrl;
 
-      // Content Extraction
-      const mainText = jsonLd?.articleBody || extractMainText(html);
+      const mainText = extraction.text;
       const words = mainText ? mainText.split(/\s+/).filter(Boolean) : [];
 
       if (!mainText || words.length < 15) {
@@ -296,6 +628,7 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
           ok: false,
           status: 'SOURCE_CONTENT_UNAVAILABLE',
           reason: 'article_body_extraction_insufficient',
+          message: 'Artikel terdeteksi tetapi isi halaman tidak berhasil dibaca. Alasan: Bot protection / JavaScript rendering / timeout / extraction failed. Silakan tempel teks artikel secara langsung.',
           source: {
             url: currentUrl,
             canonicalUrl,
@@ -308,6 +641,7 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
 
       return {
         ok: true,
+        status: 'SUCCESS',
         source: {
           url: currentUrl,
           canonicalUrl,
@@ -322,11 +656,12 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
         content: {
           text: mainText,
           wordCount: words.length,
+          strategy: extraction.strategy,
         },
         retrieval: {
           retrievedAt: new Date().toISOString(),
           status: 'SUCCESS',
-          method: 'backend_article_extractor_v4.1',
+          method: `backend_extractor_v4.2 (${extraction.strategy})`,
         },
       };
     } catch (err) {
@@ -335,6 +670,7 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
         ok: false,
         status: 'SOURCE_CONTENT_UNAVAILABLE',
         reason: err.name === 'AbortError' ? 'timeout' : (err.message || 'fetch_error'),
+        message: 'Gagal mengambil konten artikel dari sumber terkait.',
         source: { url: currentUrl, domain: parsed.hostname },
       };
     }
