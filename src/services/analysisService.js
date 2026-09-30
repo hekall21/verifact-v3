@@ -1,11 +1,22 @@
 /**
  * analysisService.js
  *
- * Orchestrator utama alur analisis VeriFact ID 3.0.
- * Menjalankan 5 langkah verifikasi transparan sesuai master prompt §2, §3, §4, §9, §11.
+ * VeriFact ID 4.0 — Evidence Intelligence Platform
+ * Orchestrator Utama Pipeline Verifikasi Fakta 12 Langkah
+ * Mengintegrasikan:
+ *   - Input Classification & Content Retrieval
+ *   - Atomic Claim Decomposition (§03)
+ *   - Multi-Query Generation (§06)
+ *   - Evidence Provider Abstraction (§05)
+ *   - Source Normalization & Multi-Factor Quality (§07, §08)
+ *   - Source Independence & Clustering (§09, §10)
+ *   - Temporal Fact Checking & "True At The Time" (§12, §13)
+ *   - Conflict Detection Engine (§22)
+ *   - Verification ID & Cryptographic Report Hash (§25, §27)
+ *   - Confidence 2.0 & Transparent Limitations (§32, §59)
  */
 
-import { classifyInput, parseUrl, inspectUrl } from '../utils/urlDetector.js';
+import { classifyInput } from '../utils/urlDetector.js';
 import {
   extractClaim,
   extractAmounts,
@@ -14,14 +25,22 @@ import {
   extractKeywords,
   detectStyleMarkers,
 } from '../utils/claimExtractor.js';
-import { determineVerdict, VERDICT } from '../utils/verdict.js';
+import { decomposeIntoAtomicClaims, evaluateAtomicClaims, synthesizeOverallVerdict } from '../utils/atomicClaimEngine.js';
+import { generateVerificationQueries } from './queryGenerator.js';
+import { gatherEvidenceFromAllProviders } from './evidenceProviders.js';
+import { clusterSources } from '../utils/sourceClustering.js';
+import { detectEvidenceConflicts } from '../utils/conflictDetector.js';
+import { analyzeTemporalContext } from '../utils/temporalAnalysis.js';
+import { generateVerificationId, computeReportHash } from '../utils/reportIntegrity.js';
 import { computeConfidence } from '../utils/sourceScoring.js';
 import { fetchAndExtractArticle } from './articleService.js';
-import { findMatchingPatterns } from './factCheckService.js';
-import { getOfficialChannelsForTopics, buildFactCheckSearchUrl } from './sourceService.js';
+import { determineVerdict } from '../utils/verdict.js';
 
 export async function runVerification(rawInput, onProgress) {
-  // Langkah 1: Deteksi dan Klasifikasi Input
+  const timestamp = new Date().toISOString();
+  const verificationId = generateVerificationId('VF-2026');
+
+  // LANGKAH 1: Klasifikasi Format Input
   if (onProgress) onProgress(1);
   const classification = classifyInput(rawInput);
 
@@ -38,9 +57,8 @@ export async function runVerification(rawInput, onProgress) {
     };
   }
 
-  // Langkah 2: Ekstraksi Struktur Klaim & Konten
+  // LANGKAH 2: Pengambilan Konten & Ekstraksi Klaim Awal
   if (onProgress) onProgress(2);
-
   let urlInfo = null;
   let textToAnalyze = String(rawInput).trim();
   let contentRetrieved = false;
@@ -48,7 +66,7 @@ export async function runVerification(rawInput, onProgress) {
 
   if (classification.kind === 'url') {
     urlInfo = await fetchAndExtractArticle(rawInput);
-    textToAnalyze = classification.host + ' ' + (classification.path || '').replace(/[/_-]/g, ' ');
+    textToAnalyze = urlInfo.title || (classification.host + ' ' + (classification.path || '').replace(/[/_-]/g, ' '));
     contentRetrieved = urlInfo.contentRetrieved;
     sourceInaccessible = !contentRetrieved;
   }
@@ -64,83 +82,128 @@ export async function runVerification(rawInput, onProgress) {
   const styleMarkers = claimStructure.styleMarkers || [];
   const keywords = claimStructure.keywords || [];
 
-
-  // Langkah 3: Penelusuran Bukti & Korpus
+  // LANGKAH 3: Dekomposisi Klaim Atomik & Generasi Multi-Query
   if (onProgress) onProgress(3);
+  const atomicClaims = decomposeIntoAtomicClaims(
+    claimStructure.mainClaim || textToAnalyze,
+    claimStructure.entities,
+    amounts,
+    dates
+  );
 
-  const matchedPatterns = findMatchingPatterns(rawInput, keywords);
-  const searchLinks = buildFactCheckSearchUrl(claimStructure.mainClaim || rawInput);
+  const generatedQueries = generateVerificationQueries(
+    claimStructure.mainClaim || textToAnalyze,
+    atomicClaims,
+    entitiesList,
+    dates
+  );
 
-  let topics = [];
-  if (matchedPatterns.length > 0) {
-    topics = matchedPatterns[0].topics || [];
-  }
-  const officialChannels = getOfficialChannelsForTopics(topics);
+  // LANGKAH 4: Penelusuran Multi-Provider & Klasterisasi Bukti
+  if (onProgress) onProgress(4);
+  const gatheredEvidences = await gatherEvidenceFromAllProviders(
+    claimStructure.mainClaim || textToAnalyze,
+    { urlInfo, hasMalwarePattern: styleMarkers.length > 2 }
+  );
 
-  // Bentuk daftar evidence
-  const evidenceList = [];
-
-  // Jika input adalah URL dengan sinyal risiko (misal: shortener, TLD aneh)
+  // Jika input URL menyertakan sinyal struktural domain
   if (urlInfo && urlInfo.signals && urlInfo.signals.length > 0) {
     for (const sig of urlInfo.signals) {
-      evidenceList.push({
+      gatheredEvidences.push({
         id: `sig-${sig.code}`,
         title: `Indikasi Keamanan Domain: ${sig.code}`,
         domain: urlInfo.domain,
         stance: 'refutes',
         tier: 2,
         relevance: 'high',
-        excerpt: sig.detail || 'Sinyal struktural pada tautan mengindikasikan potensi risiko.',
+        snippet: sig.detail || 'Sinyal struktural pada tautan mengindikasikan potensi risiko.',
+        publisher: urlInfo.domain,
+        sourceType: 'security_signal',
+        retrievedAt: timestamp,
       });
     }
   }
 
-  // Jika cocok dengan pola korpus kejahatan siber
-  if (matchedPatterns.length > 0) {
-    const topPattern = matchedPatterns[0];
-    evidenceList.push({
-      id: `pat-${topPattern.id}`,
-      title: `Pola Modus Dikenal: ${topPattern.id.toUpperCase()}`,
-      domain: topPattern.channels[0]?.domain || 'verifact.id',
-      stance: 'context',
-      tier: 3,
-      relevance: 'high',
-      excerpt: `Pola pesan memiliki karakteristik yang serupa dengan modus ${topPattern.id}.`,
-    });
-  }
+  // Klasterisasi Bukti (Source Independence & Deduplication)
+  const sourceClusters = clusterSources(gatheredEvidences);
 
-  // Langkah 4: Penentuan Verdict & Alasan
-  if (onProgress) onProgress(4);
+  // Evaluasi Tiap Klaim Atomik terhadap Bukti
+  const evaluatedAtomicClaims = evaluateAtomicClaims(atomicClaims, gatheredEvidences);
 
-  // evidenceSearchPerformed: apakah kita melakukan pengecekan bukti struktural
-  const evidenceSearchPerformed = true;
+  // LANGKAH 5: Deteksi Konflik & Analisis Linimasa Temporal
+  if (onProgress) onProgress(5);
+  const conflictAnalysis = detectEvidenceConflicts(gatheredEvidences);
+  const temporalAnalysis = analyzeTemporalContext(dates, gatheredEvidences, urlInfo?.publishedAt);
+
+  // Sintesis Kesimpulan Keseluruhan (Overall Verdict)
+  const atomicSynthesis = synthesizeOverallVerdict(evaluatedAtomicClaims);
 
   const verdictResult = determineVerdict({
-    evidence: evidenceList,
+    evidence: gatheredEvidences,
     contentRetrieved,
-    evidenceSearchPerformed,
-    priorVerdict: null,
+    evidenceSearchPerformed: true,
+    priorVerdict: atomicSynthesis.verdict,
   });
 
-  // Langkah 5: Kalkulasi Keyakinan & Finalisasi Laporan
-  if (onProgress) onProgress(5);
-
+  // Kalkulasi Keyakinan 2.0
   const confidenceResult = computeConfidence({
     verdict: verdictResult.verdict,
-    evidence: evidenceList,
+    evidence: gatheredEvidences,
     stats: verdictResult.stats,
     contentRetrieved,
-    evidenceSearchPerformed,
+    evidenceSearchPerformed: true,
   });
+
+  // Tentukan cakupan sumber (Source Coverage)
+  let sourceCoverage = 'Low';
+  if (sourceClusters.length >= 3 || gatheredEvidences.length >= 4) {
+    sourceCoverage = 'High';
+  } else if (sourceClusters.length >= 2 || gatheredEvidences.length >= 2) {
+    sourceCoverage = 'Medium';
+  }
+
+  // Daftarkan Batasan Jujur Sistem (Transparent Limitations)
+  const limitations = [
+    'Penilaian dilakukan berdasarkan data dan bukti yang berhasil diakses pada saat pemeriksaan.',
+    'Konten media sosial privat atau grup percakapan tertutup tidak dapat diakses secara langsung.',
+    'Pemeriksaan tidak menyimpulkan motif personal pihak terkait di luar bukti pernyataan resmi.',
+  ];
+  if (sourceInaccessible) {
+    limitations.unshift('Konten halaman tautan sumber tidak dapat diakses secara langsung oleh mesin perayap.');
+  }
+
+  // Audit Trail Langkah Kerja Sistem ("Show Your Work")
+  const auditTrail = [
+    { step: 1, title: 'Input Classification', detail: `Format masukan terdeteksi sebagai: ${classification.kind.toUpperCase()}` },
+    { step: 2, title: 'Claim Extraction', detail: `Berhasil mengekstrak ${atomicClaims.length} proposisi klaim atomik independen.` },
+    { step: 3, title: 'Search Query Generation', detail: `Menghasilkan ${generatedQueries.length} variasi query pencarian ke berbagai kanal.` },
+    { step: 4, title: 'Evidence Retrieval', detail: `Ditemukan ${gatheredEvidences.length} kandidat bukti dari berbagai tier sumber.` },
+    { step: 5, title: 'Source Independence Clustering', detail: `Dikelompokkan menjadi ${sourceClusters.length} kluster sumber independen.` },
+    { step: 6, title: 'Conflict & Temporal Check', detail: conflictAnalysis.hasConflict ? 'Terdeteksi diskrepansi antar sumber.' : 'Arah kesimpulan sumber konsisten.' },
+    { step: 7, title: 'Final Synthesis', detail: `Status verifikasi disintesis menjadi: ${verdictResult.verdict}` },
+  ];
+
+  // Hitung Report Hash SHA-256
+  const reportPayload = {
+    verificationId,
+    claim: { mainClaim: claimStructure.mainClaim || textToAnalyze },
+    verdict: verdictResult.verdict,
+    confidence: confidenceResult,
+    timestamp,
+  };
+  const reportHash = await computeReportHash(reportPayload);
 
   return {
     ok: true,
+    version: '4.0.0',
+    verificationId,
+    reportHash,
+    timestamp,
     inputKind: classification.kind,
     rawInput,
     urlInfo,
     sourceInaccessible,
     claim: {
-      mainClaim: claimStructure.mainClaim,
+      mainClaim: claimStructure.mainClaim || textToAnalyze,
       sentences: claimStructure.sentences,
       entities: entitiesList,
       amounts,
@@ -149,14 +212,27 @@ export async function runVerification(rawInput, onProgress) {
       styleMarkers,
       keywords,
     },
+    atomicClaims: evaluatedAtomicClaims,
+    generatedQueries,
+    evidence: gatheredEvidences,
+    sourceClusters,
+    conflictAnalysis,
+    temporalAnalysis,
     verdict: verdictResult.verdict,
-    reasonCodes: verdictResult.reasonCodes,
+    reasonKey: verdictResult.reasonKey,
+    reasonCodes: verdictResult.reasonCodes || (sourceInaccessible ? ['sourceContentUnavailable'] : []),
     stats: verdictResult.stats,
-    confidence: confidenceResult,
-    matchedPatterns,
-    evidenceList,
-    officialChannels,
-    searchLinks,
-    timestamp: new Date().toISOString(),
+    confidence: {
+      ...confidenceResult,
+      sourceCoverage,
+      primarySourcesCount: gatheredEvidences.filter((e) => e.tier === 1).length,
+      independentClustersCount: sourceClusters.length,
+    },
+    limitations,
+    auditTrail,
+    methodology: {
+      engine: 'VeriFact Evidence Intelligence Engine 4.0',
+      standards: 'IFCN Code of Principles & Transparent Evidence Ledger',
+    },
   };
 }
