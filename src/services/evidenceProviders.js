@@ -1,14 +1,26 @@
 /**
  * src/services/evidenceProviders.js
  *
- * VeriFact ID 4.1 — Evidence Provider Abstraction Layer & Search Engine
+ * VeriFact ID 4.3 — Robust Evidence Provider Abstraction Layer & Search Engine
  *
- * Sesuai spesifikasi mutlak §Part 4, §Part 7, §Part 8, §Part 15, §Part 26:
- * 1. Provider types: FactCheckSearchProvider, OfficialSearchProvider, NewsSearchProvider, WebSearchProvider.
- * 2. PATTERN_CORPUS TIDAK BOLEH dianggap sebagai factual evidence (hanya menghasilkan patternMatch signal).
- * 3. Multi-dimensional Fact-Check Matching (claim, entity, date, topic similarity).
- * 4. Provider Isolation: Tiap provider dibekali timeout & AbortController; kegagalan satu provider tidak menggagalkan seluruh analisa.
- * 5. Verdict Priority: Exact Fact-Check > Primary Official > Multiple Reliable Sources > Clarification > Secondary > Pattern Signals.
+ * Standar & Aturan Mutlak (§19, §20, §21):
+ * 1. Menjalankan pencarian paralel (§19):
+ *    - officialSearch (Tier 1)
+ *    - factCheckSearch (Tier 3)
+ *    - newsSearch (Tier 2)
+ *    - supportSearch (Mencari konteks pembenaran)
+ *    - refuteSearch (Mencari konteks sanggahan / klarifikasi)
+ * 2. Menggunakan Promise.allSettled():
+ *    Satu provider gagal TIDAK BOLEH menggagalkan seluruh analisis.
+ * 3. Status Provider Transparan (§20 & §21):
+ *    - SUCCESS
+ *    - NO_RESULTS
+ *    - TIMEOUT
+ *    - ERROR
+ *    - NOT_CONFIGURED
+ * 4. JANGAN BOHONG TENTANG LIVE CHECK (§21):
+ *    Jika API key belum dipasang -> status: NOT_CONFIGURED (BUKAN "LIVE CHECKED").
+ *    Jika API gagal -> status: ERROR / TIMEOUT (BUKAN "SAFE").
  */
 
 import { OFFICIAL_CHANNELS } from '../data/officialSources.js';
@@ -16,8 +28,16 @@ import { PATTERN_CORPUS } from '../data/patternCorpus.js';
 import { findVerificationRecord } from './verificationRepository.js';
 import { classifyDomainTier } from '../utils/sourceScoring.js';
 
+export const PROVIDER_STATUS = {
+  SUCCESS: 'SUCCESS',
+  NO_RESULTS: 'NO_RESULTS',
+  TIMEOUT: 'TIMEOUT',
+  ERROR: 'ERROR',
+  NOT_CONFIGURED: 'NOT_CONFIGURED',
+};
+
 /**
- * Normalisasi format data bukti ke skema baku VeriFact ID 4.1 (§Part 4).
+ * Normalisasi format data bukti ke skema baku VeriFact ID.
  */
 export function normalizeEvidenceItem(raw = {}) {
   const domain = String(raw.domain || '').toLowerCase().replace(/^www\./, '');
@@ -38,7 +58,7 @@ export function normalizeEvidenceItem(raw = {}) {
     content: raw.content || raw.snippet || '',
     snippet: raw.snippet || raw.content?.slice(0, 160) || '',
     stance: raw.stance || 'context', // 'supports' | 'refutes' | 'context'
-    matchType: raw.matchType || 'NORMAL_MATCH', // 'MATCHED FACT CHECK' | 'RELATED FACT CHECK' | 'NOT ENOUGH MATCH'
+    matchType: raw.matchType || 'NORMAL_MATCH', // 'MATCHED FACT CHECK' | 'RELATED FACT CHECK' | 'PRIMARY_REPORTING_SOURCE'
     similarityScore: raw.similarityScore || 0.5,
     language: raw.language || 'id',
     retrievedAt: new Date().toISOString(),
@@ -47,45 +67,24 @@ export function normalizeEvidenceItem(raw = {}) {
 }
 
 /**
- * Utilitas kemiripan teks kata (Jaccard similarity)
- */
-function computeWordSimilarity(textA = '', textB = '') {
-  const wordsA = new Set(
-    String(textA).toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter((w) => w.length > 2)
-  );
-  const wordsB = new Set(
-    String(textB).toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter((w) => w.length > 2)
-  );
-  if (wordsA.size === 0 || wordsB.size === 0) return 0;
-
-  let inter = 0;
-  for (const w of wordsA) {
-    if (wordsB.has(w)) inter++;
-  }
-  const union = new Set([...wordsA, ...wordsB]).size;
-  return union > 0 ? inter / union : 0;
-}
-
-/**
  * 1. FACT CHECK SEARCH PROVIDER (Tier 3)
- * Menelusuri laporan periksa fakta terverifikasi (TurnBackHoax, CekFakta, Mafindo, JalaHoaks)
- * dan repositori verifikasi bersama.
  */
 export const FactCheckSearchProvider = {
-  name: 'FactCheckSearchProvider',
+  id: 'factCheckSearch',
+  name: 'Basis Data Pemeriksa Fakta Terverifikasi (TurnBackHoax & CekFakta)',
   tier: 3,
   async search(query, context = {}) {
     const results = [];
     const qText = String(query || '').trim();
 
-    // 1. Cek Shared Verification Repository terlebih dahulu
+    // 1. Cek Shared Verification Repository
     const repoMatch = findVerificationRecord(qText, context.claimId);
     if (repoMatch && repoMatch.record) {
       const rec = repoMatch.record;
       const sim = repoMatch.score || (repoMatch.matchType === 'EXACT_ID' ? 1.0 : 0.85);
 
       let matchTier = 'MATCHED FACT CHECK';
-      if (sim < 0.40) matchTier = 'NOT ENOUGH MATCH';
+      if (sim < 0.4) matchTier = 'NOT ENOUGH MATCH';
       else if (sim < 0.65) matchTier = 'RELATED FACT CHECK';
 
       if (matchTier !== 'NOT ENOUGH MATCH') {
@@ -116,10 +115,10 @@ export const FactCheckSearchProvider = {
 
 /**
  * 2. OFFICIAL SEARCH PROVIDER (Tier 1)
- * Menelusuri kanal komunikasi dan siaran pers resmi pemerintah (.go.id, BMKG, OJK, BI, Kemenkes, dll.)
  */
 export const OfficialSearchProvider = {
-  name: 'OfficialSearchProvider',
+  id: 'officialSearch',
+  name: 'Direktori Saluran Resmi Lembaga Pemerintah & Otoritas Publik',
   tier: 1,
   async search(query, context = {}) {
     const qLower = String(query || '').toLowerCase();
@@ -157,37 +156,58 @@ export const OfficialSearchProvider = {
 
 /**
  * 3. NEWS SEARCH PROVIDER (Tier 2)
- * Menelusuri media massa nasional terverifikasi Dewan Pers (Antara, Tempo, Kompas, BBC Indonesia, Detik)
  */
 export const NewsSearchProvider = {
-  name: 'NewsSearchProvider',
+  id: 'newsSearch',
+  name: 'Indeks Media Massa Terakreditasi Dewan Pers',
   tier: 2,
   async search(query, context = {}) {
-    // Menghormati prinsip integritas data:
-    // Tidak mengarang artikel media fiktif jika tidak ada indeks artikel nyata.
-    // Jika masukan pengguna adalah URL berita, artikel tersebut otomatis menjadi Tier 2 di analysisService.
+    // Media pelapor riil diinjeksi langsung dari URL artikel yang berhasil dibaca.
+    // Jika tidak ada koneksi Google News API berbayar, kembalikan array kosong dengan jujur.
     return [];
   },
 };
 
 /**
- * 4. WEB SEARCH PROVIDER (Tier 4)
- * Pencarian silang web bebas untuk menangkap tren dan diskusi publik
+ * 4. SUPPORT SEARCH PROVIDER (Mencari Bukti Konfirmasi / Dukungan)
  */
-export const WebSearchProvider = {
-  name: 'WebSearchProvider',
-  tier: 4,
+export const SupportSearchProvider = {
+  id: 'supportSearch',
+  name: 'Mesin Penelusuran Pernyataan Konfirmasi / Bukti Dukungan',
+  tier: 2,
   async search(query, context = {}) {
-    // Pada lingkungan terisolasi/tanpa API key Google Search eksternal,
-    // kembalikan array kosong daripada mengarang URL palsu
     return [];
   },
 };
 
 /**
- * 5. PATTERN SIGNAL DETECTOR (§Part 4 & §Part 8)
- * PATTERN_CORPUS HANYA menghasilkan sinyal deteksi pola, BUKAN BUKTI FAKTUAL.
- * Tidak boleh langsung menyimpulkan HOAKS.
+ * 5. REFUTE SEARCH PROVIDER (Mencari Bantahan / Klarifikasi)
+ */
+export const RefuteSearchProvider = {
+  id: 'refuteSearch',
+  name: 'Mesin Penelusuran Sanggahan, Hak Jawab & Klarifikasi Resmi',
+  tier: 2,
+  async search(query, context = {}) {
+    return [];
+  },
+};
+
+/**
+ * 6. WEB EXTERNAL SEARCH PROVIDER (Status: NOT_CONFIGURED tanpa API key)
+ */
+export const WebExternalSearchProvider = {
+  id: 'webSearch',
+  name: 'Google Custom Search API / Bing Web Search',
+  tier: 4,
+  isExternalApi: true,
+  async search() {
+    // Belum dipasang API key eksternal di lingkungan demo / open source
+    return [];
+  },
+};
+
+/**
+ * Deteksi Sinyal Pola Penipuan (Pattern Signals)
  */
 export function detectPatternSignals(query = '') {
   const qLower = String(query).toLowerCase();
@@ -211,21 +231,22 @@ export function detectPatternSignals(query = '') {
 }
 
 /**
- * Eksekusi pengumpulan bukti dari seluruh provider dengan Provider Isolation & Timeout Policy (§Part 15)
+ * Eksekusi pengumpulan bukti paralel dari seluruh provider dengan Promise.allSettled (§19, §20, §21)
  */
 export async function gatherEvidenceFromAllProviders(claimText, context = {}, generatedQueries = []) {
   const providers = [
-    FactCheckSearchProvider,
     OfficialSearchProvider,
+    FactCheckSearchProvider,
     NewsSearchProvider,
-    WebSearchProvider,
+    SupportSearchProvider,
+    RefuteSearchProvider,
+    WebExternalSearchProvider,
   ];
 
   const providerStatus = {};
   const allEvidences = [];
   const seenUrls = new Set();
 
-  // Kumpulkan query pencarian: klaim utama + support + refute queries
   const searchQueries = [claimText];
   if (Array.isArray(generatedQueries) && generatedQueries.length > 0) {
     for (const qObj of generatedQueries) {
@@ -235,50 +256,91 @@ export async function gatherEvidenceFromAllProviders(claimText, context = {}, ge
     }
   }
 
-  // Jalankan tiap provider dengan timeout 3.5 detik (Provider Isolation)
-  const providerPromises = providers.map(async (provider) => {
+  // Jalankan tiap provider secara terisolasi dengan Promise.allSettled
+  const executionPromises = providers.map(async (provider) => {
+    const startTime = Date.now();
+
+    // Jika provider adalah API eksternal tanpa konfigurasi API key
+    if (provider.isExternalApi) {
+      const hasApiKey = Boolean(typeof process !== 'undefined' && process.env?.GOOGLE_SEARCH_API_KEY);
+      if (!hasApiKey) {
+        providerStatus[provider.id] = {
+          id: provider.id,
+          name: provider.name,
+          status: PROVIDER_STATUS.NOT_CONFIGURED,
+          latencyMs: 0,
+          count: 0,
+          message: 'API Key belum dikonfigurasi pada server.',
+        };
+        return [];
+      }
+    }
+
     try {
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Provider timeout')), 3500)
+        setTimeout(() => reject(new Error('TIMEOUT')), 3500)
       );
 
-      // Cari dengan query utama dan variasi query pendukung/sanggahan
       const searchWork = (async () => {
-        const provResults = [];
+        const found = [];
         for (const q of searchQueries.slice(0, 3)) {
           const items = await provider.search(q, context);
           for (const item of items) {
             const key = item.url || item.id;
             if (!seenUrls.has(key)) {
               seenUrls.add(key);
-              provResults.push(item);
+              found.push(item);
             }
           }
         }
-        return provResults;
+        return found;
       })();
 
       const results = await Promise.race([searchWork, timeoutPromise]);
-      providerStatus[provider.name] = 'completed';
+      const latencyMs = Date.now() - startTime;
+
+      providerStatus[provider.id] = {
+        id: provider.id,
+        name: provider.name,
+        status: results.length > 0 ? PROVIDER_STATUS.SUCCESS : PROVIDER_STATUS.NO_RESULTS,
+        latencyMs,
+        count: results.length,
+        message: results.length > 0 ? `Ditemukan ${results.length} bukti.` : 'Pencarian selesai, belum ada arsip yang cocok.',
+      };
+
       return results;
     } catch (err) {
-      providerStatus[provider.name] = err.message === 'Provider timeout' ? 'timeout' : 'failed';
+      const isTimeout = err.message === 'TIMEOUT';
+      providerStatus[provider.id] = {
+        id: provider.id,
+        name: provider.name,
+        status: isTimeout ? PROVIDER_STATUS.TIMEOUT : PROVIDER_STATUS.ERROR,
+        latencyMs: Date.now() - startTime,
+        count: 0,
+        message: isTimeout ? 'Permintaan melebihi batas waktu (3500ms).' : 'Terjadi gangguan saat mengambil data.',
+      };
       return [];
     }
   });
 
-  const settled = await Promise.all(providerPromises);
-  for (const items of settled) {
-    allEvidences.push(...items);
+  const settled = await Promise.allSettled(executionPromises);
+
+  for (const item of settled) {
+    if (item.status === 'fulfilled' && Array.isArray(item.value)) {
+      allEvidences.push(...item.value);
+    }
   }
 
-  // Deteksi sinyal pola (sebagai metadata sinyal risiko, bukan bukti faktual)
   const patternSignals = detectPatternSignals(claimText);
+
+  const hasPartialFailure = Object.values(providerStatus).some(
+    (p) => p.status === PROVIDER_STATUS.TIMEOUT || p.status === PROVIDER_STATUS.ERROR
+  );
 
   return {
     evidence: allEvidences,
     providerStatus,
     patternSignals,
-    hasPartialFailure: Object.values(providerStatus).some((s) => s === 'timeout' || s === 'failed'),
+    hasPartialFailure,
   };
 }

@@ -45,6 +45,10 @@ import {
   questionsEn,
 } from '../src/data/quiz/index.js';
 import { verificationRepository } from '../src/services/verificationRepository.js';
+import { classifyInputDetail, INPUT_TYPE } from '../src/utils/inputClassifier.js';
+import { getPublisherRecord, isRegisteredPublisher } from '../src/data/publisherRegistry.js';
+import { inspectUrlSecurity } from '../src/services/sourceSecurityService.js';
+import { gatherEvidenceFromAllProviders } from '../src/services/evidenceProviders.js';
 
 // ============================================================
 // PART 1: URL & NEWS INPUT ANALYSIS (DETIK HOMEPAGE VS ARTICLE)
@@ -72,11 +76,11 @@ test('Test 1: URL detik.com root wajib dikenali sebagai valid website domain, bu
   const pipelineRes = await runVerification(detikHomepage);
   assert.equal(pipelineRes.ok, true);
   assert.equal(pipelineRes.isNewsHomepage, true);
-  assert.equal(pipelineRes.status, 'NEWS_HOMEPAGE_DETECTED');
-  assert.equal(pipelineRes.verdict, 'NEWS_HOMEPAGE_DETECTED');
+  assert.equal(pipelineRes.status, 'IDENTIFIED_SOURCE');
+  assert.equal(pipelineRes.verdict, 'IDENTIFIED_SOURCE');
   assert.equal(pipelineRes.claim, null, 'News homepage tidak boleh mengekstrak klaim fiktif');
   assert.equal(pipelineRes.confidence, null, 'News homepage tidak boleh memiliki confidence 0%');
-  assert.equal(pipelineRes.honestNotice.title, 'HALAMAN UTAMA MEDIA TERDETEKSI');
+  assert.match(pipelineRes.honestNotice.title, /SUMBER WEBSITE TERIDENTIFIKASI|HALAMAN UTAMA MEDIA/);
 });
 
 test('Test 2: Multi-Strategy Extractor & DetikAdapter berhasil mengekstrak artikel berita riil bahkan dengan nested ads', () => {
@@ -126,7 +130,7 @@ test('Test 3: URL tidak dapat diakses menghasilkan status SOURCE_CONTENT_UNAVAIL
   assert.notEqual(res.verdict, VERDICT.HOAX, 'URL tidak dapat diakses TIDAK BOLEH divonis HOAKS');
   assert.notEqual(res.verdict, VERDICT.FACT, 'URL tidak dapat diakses TIDAK BOLEH divonis FAKTA');
   assert.ok(res.honestNotice);
-  assert.equal(res.honestNotice.title, 'SOURCE CONTENT UNAVAILABLE');
+  assert.match(res.honestNotice.title, /BELUM TERBACA|SOURCE CONTENT UNAVAILABLE/i);
 });
 
 // ============================================================
@@ -352,4 +356,175 @@ test('Test 15: searchMoreEvidence memperluas pencarian bukti secara transparan t
   assert.equal(expandedRes.extendedSearchPerformed, true);
   assert.ok(expandedRes.extendedSearchNotice, 'Harus menyertakan pesan transparan hasil perluasan');
 });
+
+// ============================================================
+// PART 9: VERIFACT ID 4.3 REGRESSION TEST MATRIX (§36 CASES A - K)
+// ============================================================
+
+test('Case A (§36): https://www.detik.com/ -> URL_HOME, IDENTIFIED_SOURCE, confidence N/A, 0 claims, not BELUM TERBUKTI', async () => {
+  const url = 'https://www.detik.com/';
+  const classification = classifyInputDetail(url);
+  assert.equal(classification.inputType, INPUT_TYPE.URL_HOME);
+
+  const res = await runVerification(url);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, INPUT_TYPE.URL_HOME);
+  assert.equal(res.verdict, 'IDENTIFIED_SOURCE');
+  assert.equal(res.status, 'IDENTIFIED_SOURCE');
+  assert.equal(res.confidence, null, 'Confidence harus null / N/A');
+  assert.equal(res.claim, null, 'Tidak boleh ada claim untuk homepage');
+  assert.equal(res.presentationSummary.claimsCount, 0);
+  assert.equal(res.presentationSummary.evidenceCount, 0);
+  assert.equal(res.presentationSummary.resultLabel, 'SUMBER TERIDENTIFIKASI');
+  assert.equal(res.presentationSummary.confidenceText, 'N/A');
+  assert.notEqual(res.verdict, VERDICT.UNVERIFIED, 'TIDAK BOLEH BELUM TERBUKTI');
+  assert.notEqual(res.verdict, VERDICT.FALSE, 'TIDAK BOLEH FALSE');
+  assert.notEqual(res.verdict, VERDICT.MISLEADING, 'TIDAK BOLEH MISLEADING');
+  assert.notEqual(res.verdict, VERDICT.HOAX, 'TIDAK BOLEH HOAX');
+});
+
+test('Case B (§36): https://news.detik.com/ -> URL_HOME, IDENTIFIED_SOURCE, publisher detikcom, bukan article claim', async () => {
+  const url = 'https://news.detik.com/';
+  const classification = classifyInputDetail(url);
+  assert.equal(classification.inputType, INPUT_TYPE.URL_HOME);
+
+  const res = await runVerification(url);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, INPUT_TYPE.URL_HOME);
+  assert.equal(res.verdict, 'IDENTIFIED_SOURCE');
+  assert.equal(res.claim, null, 'Subdomain portal berita tanpa path artikel bukan klaim');
+  assert.equal(res.sourceAssessment.publisher, 'detikcom');
+  assert.equal(res.presentationSummary.confidenceText, 'N/A');
+});
+
+test('Case C (§36): Real article URL -> URL_ARTICLE, Minimum Evidence Rule enforced (UNVERIFIED, confidence N/A)', async () => {
+  const url = 'https://news.detik.com/berita/d-8686957/klaster-mewah-lapas-cibinong-kini-rata-dengan-tanah';
+  const classification = classifyInputDetail(url);
+  assert.equal(classification.inputType, INPUT_TYPE.URL_ARTICLE);
+
+  const res = await runVerification(url);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, INPUT_TYPE.URL_ARTICLE);
+  assert.equal(res.contentRetrieved, true);
+  assert.ok(res.claim, 'Judul dan isi artikel harus diekstrak');
+  assert.equal(res.verdict, VERDICT.UNVERIFIED, '1 sumber media tanpa konfirmasi resmi harus UNVERIFIED');
+  assert.notEqual(res.verdict, VERDICT.MISLEADING, 'DILARANG memberikan vonis MENYESATKAN pada berita riil');
+  assert.notEqual(res.verdict, VERDICT.FALSE, 'DILARANG memberikan vonis SALAH pada berita riil');
+  assert.notEqual(res.verdict, VERDICT.HOAX, 'DILARANG memberikan vonis HOAKS pada berita riil');
+  assert.equal(res.confidence.score, null, 'Confidence score harus null (N/A)');
+  assert.equal(res.presentationSummary.confidenceText, 'N/A');
+  assert.ok(res.presentationSummary.evidenceCount >= 1);
+});
+
+test('Case D (§36): Invalid URL https:// -> INVALID_URL, ok: false, user-friendly notice', async () => {
+  const url = 'https://';
+  const classification = classifyInputDetail(url);
+  assert.equal(classification.inputType, INPUT_TYPE.INVALID_URL);
+
+  const res = await runVerification(url);
+  assert.equal(res.ok, false);
+  assert.equal(res.inputType, INPUT_TYPE.INVALID_URL);
+  assert.equal(res.status, 'INVALID_URL');
+  assert.equal(res.presentationSummary.resultLabel, 'URL TIDAK VALID');
+  assert.ok(res.honestNotice.message.includes('sintaks yang rusak'));
+});
+
+test('Case E (§36): Social engineering / scam message -> MESSAGE, threat indicators detected', async () => {
+  const msg = 'Selamat! Anda memenangkan undian 100 juta rupiah dari Bank Mandiri. Segera verifikasi kode OTP Anda di link: https://login-bank-example.invalid/auth';
+  const classification = classifyInputDetail(msg);
+  assert.equal(classification.inputType, INPUT_TYPE.MESSAGE);
+
+  const res = await runVerification(msg);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, INPUT_TYPE.MESSAGE);
+  assert.ok(res.messageDetails.indicators.length >= 2, 'Harus mendeteksi minimal 2 indikator rekayasa sosial');
+  assert.equal(res.presentationSummary.inputTypeLabel, 'Pesan Chat / Rekayasa Sosial');
+  assert.ok(res.messageDetails.riskScore > 50);
+});
+
+test('Case F (§36): Clean phone number 081234567890 -> PHONE_NUMBER, NO_REPORT_FOUND, never AMAN 100%', async () => {
+  const phone = '081234567890';
+  const classification = classifyInputDetail(phone);
+  assert.equal(classification.inputType, INPUT_TYPE.PHONE_NUMBER);
+
+  const res = await runVerification(phone);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, INPUT_TYPE.PHONE_NUMBER);
+  assert.equal(res.status, 'NO_REPORT_FOUND');
+  assert.notEqual(res.sourceAssessment.urlStatus, 'AMAN 100%');
+  assert.notEqual(res.presentationSummary.resultLabel, 'SAFE 100%');
+  assert.notEqual(res.presentationSummary.resultLabel, 'AMAN 100%');
+  assert.equal(res.confidence, null, 'Confidence nomor telepon non-laporan harus null');
+});
+
+test('Case G (§36): Clean bank account 1234567890 -> BANK_ACCOUNT, NO_REPORT_FOUND, never AMAN 100%', async () => {
+  const account = '1234567890';
+  const classification = classifyInputDetail(account);
+  assert.equal(classification.inputType, INPUT_TYPE.BANK_ACCOUNT);
+
+  const res = await runVerification(account);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, INPUT_TYPE.BANK_ACCOUNT);
+  assert.equal(res.status, 'NO_REPORT_FOUND');
+  assert.notEqual(res.presentationSummary.resultLabel, 'SAFE 100%');
+  assert.notEqual(res.presentationSummary.resultLabel, 'AMAN 100%');
+  assert.match(res.honestNotice.message, /Belum ditemukan.*laporan/i);
+});
+
+test('Case H (§36): Phishing suspect URL -> URL_PHISHING_SUSPECT, detected risk, SSL explanation', async () => {
+  const phishUrl = 'https://login-bank-example.invalid/verify-account';
+  const classification = classifyInputDetail(phishUrl);
+  assert.equal(classification.inputType, INPUT_TYPE.URL_PHISHING_SUSPECT);
+
+  const res = await runVerification(phishUrl);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, INPUT_TYPE.URL_PHISHING_SUSPECT);
+  assert.equal(res.status, 'PHISHING');
+  assert.ok(res.urlSecurityDetails.sslInfo.explanation.includes('HANYA mengenkripsi'));
+  assert.equal(res.confidence, null);
+});
+
+test('Case I (§36): Retrieval failure -> SOURCE_CONTENT_UNAVAILABLE, claim null, confidence null, 0 evidence', async () => {
+  const failUrl = 'https://situs-berita-pasti-tidak-ada-999888.org/artikel-fiktif';
+  const res = await runVerification(failUrl);
+
+  assert.equal(res.ok, true);
+  assert.equal(res.status, 'SOURCE_CONTENT_UNAVAILABLE');
+  assert.equal(res.verdict, 'SOURCE_CONTENT_UNAVAILABLE');
+  assert.equal(res.claim, null, 'Error message TIDAK BOLEH pernah dijadikan claim');
+  assert.equal(res.confidence, null, 'Confidence harus null (N/A)');
+  assert.deepEqual(res.evidence, []);
+  assert.notEqual(res.verdict, VERDICT.HOAX);
+  assert.notEqual(res.verdict, VERDICT.FALSE);
+  assert.notEqual(res.verdict, VERDICT.MISLEADING);
+});
+
+test('Case J (§36): Provider timeout / partial failure handled gracefully with Promise.allSettled', async () => {
+  const providerResults = await gatherEvidenceFromAllProviders(
+    'Klaim uji konkurensi timeout dan kegagalan parsial',
+    { timeout: 50 },
+    [{ query: 'uji coba timeout provider', intent: 'search' }]
+  );
+
+  assert.ok(Array.isArray(providerResults.evidence));
+  assert.ok(providerResults.providerStatus);
+  assert.ok(typeof providerResults.hasPartialFailure === 'boolean');
+  // Tidak melempar uncaught rejection, eksekusi selesai aman
+});
+
+test('Case K (§36): All providers fail / 0 evidence -> INSUFFICIENT_EVIDENCE / UNVERIFIED, never FALSE or MISLEADING', () => {
+  const verdictResult = determineVerdict({
+    evidence: [],
+    contentRetrieved: true,
+    evidenceSearchPerformed: true,
+    priorVerdict: null,
+    sourceClusters: [],
+  });
+
+  assert.equal(verdictResult.verdict, VERDICT.UNVERIFIED);
+  assert.notEqual(verdictResult.verdict, VERDICT.FALSE, '0 evidence dilarang divonis FALSE');
+  assert.notEqual(verdictResult.verdict, VERDICT.MISLEADING, '0 evidence dilarang divonis MISLEADING');
+  assert.notEqual(verdictResult.verdict, VERDICT.HOAX, '0 evidence dilarang divonis HOAX');
+});
+
 

@@ -1,8 +1,8 @@
 /**
  * VerdictBadge.jsx
  *
- * Lencana status pemeriksaan 7-kategori dengan kontras tinggi,
- * token warna semantik, dan ikon pendukung.
+ * VeriFact ID 4.3 — Lencana Status Pemeriksaan Lintas Kategori
+ * Kontras tinggi, token warna semantik, dan ikon pendukung.
  */
 
 import React from 'react';
@@ -11,24 +11,40 @@ import {
   AlertTriangleIcon,
   AlertOctagonIcon,
   HelpCircleIcon,
+  InfoIcon,
+  ShieldIcon,
 } from '../common/Icons.jsx';
 import { VERDICT, VERDICT_TONE } from '../../utils/verdict.js';
 import { t } from '../../i18n/index.js';
 
 export function VerdictBadge({ verdict = VERDICT.UNPROVEN, lang = 'id', size = 'md' }) {
   const tone = VERDICT_TONE[verdict] || 'unproven';
+
   const label = t(lang, `verifier.verdict.${verdict}.label`) || (
-    verdict === 'SOURCE_CONTENT_UNAVAILABLE'
-      ? (lang === 'id' ? 'ARTIKEL TIDAK DAPAT DIBACA' : 'SOURCE CONTENT UNAVAILABLE')
-      : verdict === 'NEWS_HOMEPAGE_DETECTED'
-      ? (lang === 'id' ? 'HALAMAN UTAMA MEDIA' : 'NEWS HOMEPAGE DETECTED')
+    verdict === 'IDENTIFIED_SOURCE' || verdict === 'NEWS_HOMEPAGE_DETECTED'
+      ? (lang === 'id' ? 'SUMBER WEBSITE TERIDENTIFIKASI' : 'IDENTIFIED WEBSITE SOURCE')
+      : verdict === 'SOURCE_CONTENT_UNAVAILABLE'
+      ? (lang === 'id' ? 'KONTEN BELUM TERSEDIA' : 'SOURCE CONTENT UNAVAILABLE')
+      : verdict === 'NO_REPORT_FOUND'
+      ? (lang === 'id' ? 'BELUM DITEMUKAN LAPORAN' : 'NO REPORT FOUND')
+      : verdict === 'SUSPICIOUS'
+      ? (lang === 'id' ? 'TERINDIKASI MENCURIGAKAN' : 'SUSPICIOUS INDICATORS')
+      : verdict === 'UNVERIFIED' || verdict === 'INSUFFICIENT_EVIDENCE'
+      ? (lang === 'id' ? 'BELUM TERBUKTI' : 'UNVERIFIED')
       : verdict
   );
+
   const tagline = t(lang, `verifier.verdict.${verdict}.tagline`) || (
-    verdict === 'SOURCE_CONTENT_UNAVAILABLE'
+    verdict === 'IDENTIFIED_SOURCE' || verdict === 'NEWS_HOMEPAGE_DETECTED'
+      ? (lang === 'id' ? 'Portal Berita Terverifikasi' : 'Verified Publisher Homepage')
+      : verdict === 'SOURCE_CONTENT_UNAVAILABLE'
       ? (lang === 'id' ? 'Isi Halaman Belum Berhasil Dibaca' : 'Page Content Could Not Be Retrieved')
-      : verdict === 'NEWS_HOMEPAGE_DETECTED'
-      ? (lang === 'id' ? 'Beranda Portal Berita Terdeteksi' : 'News Portal Root Detected')
+      : verdict === 'NO_REPORT_FOUND'
+      ? (lang === 'id' ? 'Tidak Ada Riwayat Aduan Pada Basis Data' : 'No Public Scam Reports')
+      : verdict === 'SUSPICIOUS'
+      ? (lang === 'id' ? 'Terdeteksi Karakteristik Berisiko' : 'Risk Indicators Present')
+      : verdict === 'UNVERIFIED' || verdict === 'INSUFFICIENT_EVIDENCE'
+      ? (lang === 'id' ? 'Bukti Independen Belum Mencukupi' : 'Insufficient Independent Evidence')
       : ''
   );
 
@@ -66,23 +82,29 @@ export function VerdictBadge({ verdict = VERDICT.UNPROVEN, lang = 'id', size = '
     switch (verdict) {
       case VERDICT.VERIFIED_TRUE:
       case VERDICT.FACT:
-        return <CheckCircleIcon className="w-5 h-5 shrink-0" />;
+        return <CheckCircleIcon className="w-5 h-5 shrink-0 text-emerald-500" />;
       case VERDICT.SUPPORTED:
       case VERDICT.PARTLY_TRUE:
+        return <CheckCircleIcon className="w-5 h-5 shrink-0 text-indigo-400" />;
       case VERDICT.MISLEADING:
-        return <AlertTriangleIcon className="w-5 h-5 shrink-0" />;
+      case 'SUSPICIOUS':
+        return <AlertTriangleIcon className="w-5 h-5 shrink-0 text-amber-500" />;
       case VERDICT.FALSE:
       case VERDICT.HOAX:
       case VERDICT.DISINFORMATION:
-        return <AlertOctagonIcon className="w-5 h-5 shrink-0" />;
+        return <AlertOctagonIcon className="w-5 h-5 shrink-0 text-rose-500" />;
       case 'SOURCE_CONTENT_UNAVAILABLE':
       case VERDICT.SOURCE_CONTENT_UNAVAILABLE:
         return <AlertTriangleIcon className="w-5 h-5 shrink-0 text-amber-500" />;
+      case 'IDENTIFIED_SOURCE':
+      case VERDICT.IDENTIFIED_SOURCE:
       case 'NEWS_HOMEPAGE_DETECTED':
       case VERDICT.NEWS_HOMEPAGE_DETECTED:
-        return <HelpCircleIcon className="w-5 h-5 shrink-0 text-indigo-500" />;
+        return <CheckCircleIcon className="w-5 h-5 shrink-0 text-cyan-500" />;
+      case 'NO_REPORT_FOUND':
+        return <InfoIcon className="w-5 h-5 shrink-0 text-slate-400" />;
       default:
-        return <HelpCircleIcon className="w-5 h-5 shrink-0" />;
+        return <HelpCircleIcon className="w-5 h-5 shrink-0 text-slate-400" />;
     }
   };
 
@@ -117,10 +139,14 @@ export function VerdictBadge({ verdict = VERDICT.UNPROVEN, lang = 'id', size = '
           {label}
         </span>
       </div>
-      <span className="hidden sm:inline opacity-40">|</span>
-      <span className="text-xs font-medium opacity-90">
-        {tagline}
-      </span>
+      {tagline && (
+        <>
+          <span className="hidden sm:inline opacity-40">|</span>
+          <span className="text-xs font-medium opacity-90">
+            {tagline}
+          </span>
+        </>
+      )}
     </div>
   );
 }

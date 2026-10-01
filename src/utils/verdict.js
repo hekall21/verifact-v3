@@ -49,6 +49,7 @@ export const VERDICT = {
   UNVERIFIABLE: 'UNVERIFIABLE',
   SOURCE_CONTENT_UNAVAILABLE: 'SOURCE_CONTENT_UNAVAILABLE',
   NEWS_HOMEPAGE_DETECTED: 'NEWS_HOMEPAGE_DETECTED',
+  IDENTIFIED_SOURCE: 'IDENTIFIED_SOURCE',
 };
 
 /** Urutan tampilan pada filter dan legenda */
@@ -81,6 +82,7 @@ export const VERDICT_TONE = {
   [VERDICT.UNVERIFIABLE]: 'unproven',
   [VERDICT.SOURCE_CONTENT_UNAVAILABLE]: 'unproven',
   [VERDICT.NEWS_HOMEPAGE_DETECTED]: 'unproven',
+  [VERDICT.IDENTIFIED_SOURCE]: 'partly',
 };
 
 /** Status yang menandakan sistem tidak menyimpulkan benar/salah secara definitif */
@@ -94,7 +96,8 @@ export function isInconclusive(verdict) {
     verdict === 'UNVERIFIED' ||
     verdict === VERDICT.UNVERIFIABLE ||
     verdict === VERDICT.SOURCE_CONTENT_UNAVAILABLE ||
-    verdict === VERDICT.NEWS_HOMEPAGE_DETECTED
+    verdict === VERDICT.NEWS_HOMEPAGE_DETECTED ||
+    verdict === VERDICT.IDENTIFIED_SOURCE
   );
 }
 
