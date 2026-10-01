@@ -310,8 +310,7 @@ test('Test 12: Alih bahasa menerjemahkan status dan Official Reporting nav item'
 });
 
 test('Test 13: URL retrieval failure integrity: error message tidak boleh menjadi claim, confidence harus null, status SOURCE_CONTENT_UNAVAILABLE', async () => {
-  // Contoh kasus detik yang tidak dapat diakses server
-  const mockUnreachableUrl = 'https://news.detik.com/berita/d-8686957/klaster-mewah-lapas-cibinong-kini-rata-dengan-tanah-unreachable-test';
+  const mockUnreachableUrl = 'https://situs-berita-pasti-down-offline-888999.invalid/artikel-hilang';
   const res = await runVerification(mockUnreachableUrl);
 
   assert.equal(res.ok, true);
@@ -322,5 +321,18 @@ test('Test 13: URL retrieval failure integrity: error message tidak boleh menjad
   assert.deepEqual(res.evidence, [], 'Evidence harus kosong');
   assert.equal(res.sourceInaccessible, true);
   assert.equal(res.contentRetrieved, false);
+});
+
+test('Test 14: URL berita riil (Detik) berhasil diekstrak kontennya, menghasilkan claim judul berita asli dan confidence terhitung', async () => {
+  const detikArticleUrl = 'https://news.detik.com/berita/d-8686957/klaster-mewah-lapas-cibinong-kini-rata-dengan-tanah';
+  const res = await runVerification(detikArticleUrl);
+
+  assert.equal(res.ok, true);
+  assert.equal(res.contentRetrieved, true);
+  assert.ok(res.claim, 'Claim harus berhasil diekstrak');
+  assert.match(res.claim.mainClaim, /Lapas Cibinong/i, 'Judul artikel Detik harus menjadi klaim utama');
+  assert.ok(res.confidence, 'Confidence harus terhitung');
+  assert.ok(typeof res.confidence.score === 'number' && res.confidence.score > 0, 'Confidence score harus > 0%');
+  assert.notEqual(res.status, 'SOURCE_CONTENT_UNAVAILABLE');
 });
 

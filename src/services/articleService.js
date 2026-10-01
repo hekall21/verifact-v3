@@ -81,6 +81,65 @@ export async function fetchAndExtractArticle(rawUrl, options = {}) {
   }
 
   // 3. Panggil Backend Article Fetcher
+  if (typeof window === 'undefined') {
+    try {
+      const serverModulePath = '../../server/articleExtractor.mjs';
+      const { fetchAndExtractArticleBackend } = await import(/* @vite-ignore */ serverModulePath);
+      const data = await fetchAndExtractArticleBackend(url.href);
+
+      if (data.status === 'NEWS_HOMEPAGE_DETECTED' || data.isHomepage) {
+        return {
+          ok: false,
+          status: 'NEWS_HOMEPAGE_DETECTED',
+          isHomepage: true,
+          domain: data.domain || inspection.domain,
+          url: url.href,
+          contentRetrieved: false,
+          content: null,
+          message: data.message || `DOMAIN TERDETEKSI: ${inspection.domain}. Ini adalah halaman utama situs berita, bukan URL artikel tertentu. Untuk analisis berita, masukkan URL artikel spesifik.`,
+          suggestions: [
+            'Buka artikel berita spesifik dan salin tautannya',
+            'Tempelkan teks artikel atau pernyataan langsung',
+          ],
+          source: data.source || { url: url.href, domain: inspection.domain },
+        };
+      }
+
+      if (data.ok && data.content?.text) {
+        return {
+          ok: true,
+          status: 'SUCCESS',
+          source: data.source,
+          content: data.content,
+          retrieval: data.retrieval || {
+            retrievedAt: new Date().toISOString(),
+            status: 'SUCCESS',
+            method: 'backend_article_fetcher_direct',
+          },
+          contentRetrieved: true,
+        };
+      }
+
+      return {
+        ok: false,
+        status: 'SOURCE_CONTENT_UNAVAILABLE',
+        reason: data.reason || 'article_extraction_failed',
+        message: data.message || 'Artikel terdeteksi tetapi isi halaman tidak berhasil dibaca.',
+        url: url.href,
+        domain: inspection.domain,
+        content: null,
+        contentRetrieved: false,
+        source: data.source || { url: url.href, domain: inspection.domain },
+        suggestions: [
+          'Tempel teks artikel secara manual ke kolom verifikasi',
+          'Periksa kembali apakah URL dapat dibuka di peramban tanpa hambatan',
+        ],
+      };
+    } catch (nodeErr) {
+      console.warn('[ArticleService] Direct backend call failed, falling back to HTTP:', nodeErr.message);
+    }
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 9000);
