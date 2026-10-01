@@ -93,10 +93,20 @@ export default {
       evidenceSearchNotice: 'Catatan: Penelusuran berjalan dalam mode deterministik berbasis aturan dan korpus pola kredibel tanpa rekayasa AI palsu.',
     },
     verdict: {
+      VERIFIED_TRUE: {
+        label: 'FAKTA TERVERIFIKASI',
+        tagline: 'Klaim Terbukti Benar',
+        summary: 'Informasi ini selaras dengan dokumen resmi otoritas primer dan diverifikasi oleh laporan kredibel.',
+      },
       FACT: {
         label: 'FAKTA',
         tagline: 'Klaim Terbukti Benar',
         summary: 'Informasi ini selaras dengan dokumen resmi otoritas primer dan diverifikasi oleh laporan kredibel.',
+      },
+      SUPPORTED: {
+        label: 'TERDUKUNG',
+        tagline: 'Didukung Laporan Awal',
+        summary: 'Laporan awal mendukung narasi klaim, namun masih memerlukan konfirmasi independen lanjutan.',
       },
       PARTLY_TRUE: {
         label: 'SEBAGIAN BENAR',
@@ -113,10 +123,25 @@ export default {
         tagline: 'Informasi Rekayasa yang Disengaja',
         summary: 'Informasi palsu yang diproduksi dan disebarkan secara terstruktur untuk mengelabui publik (didasarkan pada laporan cek fakta terverifikasi).',
       },
+      FALSE: {
+        label: 'SALAH',
+        tagline: 'Informasi Sepenuhnya Salah',
+        summary: 'Klaim ini telah dibantah secara kategoris oleh otoritas berwenang atau lembaga pemeriksa fakta resmi.',
+      },
       HOAX: {
         label: 'HOAKS',
         tagline: 'Informasi Sepenuhnya Salah',
         summary: 'Klaim ini telah dibantah secara kategoris oleh otoritas berwenang atau lembaga pemeriksa fakta resmi.',
+      },
+      UNVERIFIED: {
+        label: 'BELUM TERBUKTI',
+        tagline: 'Bukti Belum Memadai untuk Simpulan Pasti',
+        summary: 'Artikel berita berhasil dianalisis. Namun, belum ada sumber resmi atau laporan cek fakta independen yang mengonfirmasi atau membantah laporan ini.',
+      },
+      INSUFFICIENT_EVIDENCE: {
+        label: 'BELUM TERBUKTI',
+        tagline: 'Bukti Belum Cukup',
+        summary: 'Artikel berita berhasil dianalisis. Namun, belum ada sumber resmi atau laporan cek fakta independen yang mengonfirmasi atau membantah laporan ini.',
       },
       UNPROVEN: {
         label: 'BELUM TERBUKTI',

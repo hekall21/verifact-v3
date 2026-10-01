@@ -93,10 +93,20 @@ export default {
       evidenceSearchNotice: 'Note: Verification runs deterministically based on rule-based patterns and credible sources without fake AI generation.',
     },
     verdict: {
+      VERIFIED_TRUE: {
+        label: 'VERIFIED TRUE',
+        tagline: 'Claim Corroborated by Primary Evidence',
+        summary: 'This information aligns with official primary documentation and is verified by credible reports.',
+      },
       FACT: {
         label: 'FACT',
         tagline: 'Claim Corroborated by Evidence',
         summary: 'This information aligns with official primary documentation and is verified by credible reports.',
+      },
+      SUPPORTED: {
+        label: 'SUPPORTED',
+        tagline: 'Supported by Initial Reporting',
+        summary: 'Initial reporting supports the claim, but further independent confirmation is recommended.',
       },
       PARTLY_TRUE: {
         label: 'PARTLY TRUE',
@@ -113,10 +123,25 @@ export default {
         tagline: 'Deliberately Fabricated Falsehood',
         summary: 'False information systematically constructed and disseminated to deceive the public (based on verified fact-check audits).',
       },
+      FALSE: {
+        label: 'FALSE',
+        tagline: 'Categorically Inaccurate Information',
+        summary: 'This claim has been categorically debunked by authoritative sources and official fact-checkers.',
+      },
       HOAX: {
         label: 'HOAX',
         tagline: 'Fabricated Information',
         summary: 'This claim has been categorically debunked by authoritative sources and official fact-checkers.',
+      },
+      UNVERIFIED: {
+        label: 'UNVERIFIED',
+        tagline: 'Insufficient Evidence for Definite Conclusion',
+        summary: 'The news article was successfully analyzed. However, there are not yet sufficient official sources or independent fact-check reports to verify or refute this claim.',
+      },
+      INSUFFICIENT_EVIDENCE: {
+        label: 'UNVERIFIED',
+        tagline: 'Insufficient Evidence',
+        summary: 'The news article was successfully analyzed. However, there are not yet sufficient official sources or independent fact-check reports to verify or refute this claim.',
       },
       UNPROVEN: {
         label: 'UNPROVEN',

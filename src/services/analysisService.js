@@ -19,7 +19,7 @@
  * 8. Pemisahan tegas antara Analysis Progress, Confidence Score, dan Verdict.
  */
 
-import { classifyInput, isNewsHomepageUrl } from '../utils/urlDetector.js';
+import { classifyInput, isNewsHomepageUrl, getRegistrableDomain } from '../utils/urlDetector.js';
 import {
   extractClaim,
   extractAmounts,
@@ -30,7 +30,7 @@ import {
 } from '../utils/claimExtractor.js';
 import { decomposeIntoAtomicClaims, evaluateAtomicClaims, synthesizeOverallVerdict } from '../utils/atomicClaimEngine.js';
 import { generateVerificationQueries } from './queryGenerator.js';
-import { gatherEvidenceFromAllProviders } from './evidenceProviders.js';
+import { gatherEvidenceFromAllProviders, normalizeEvidenceItem } from './evidenceProviders.js';
 import { clusterSources } from '../utils/sourceClustering.js';
 import { detectEvidenceConflicts } from '../utils/conflictDetector.js';
 import { analyzeTemporalContext } from '../utils/temporalAnalysis.js';
@@ -100,10 +100,11 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
   let textToAnalyze = String(actualInput).trim();
   let contentRetrieved = false;
   let sourceInaccessible = false;
+  let article = null;
   let articleMetadata = null;
 
   if (classification.kind === 'url') {
-    const article = await fetchAndExtractArticle(rawInput);
+    article = await fetchAndExtractArticle(rawInput);
     urlInfo = article;
 
     // KASUS KHUSUS 1: NEWS HOMEPAGE (Detik.com, Kompas.com, dll.)
@@ -284,6 +285,32 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
   const gatheredEvidences = providerResults.evidence || [];
   const patternSignals = providerResults.patternSignals || [];
 
+  // Jika masukan berasal dari URL artikel berita yang berhasil dibaca:
+  // Catat artikel tersebut sebagai bukti pelaporan pertama (Tier 2 Media Pelapor)
+  if (classification.kind === 'url' && articleMetadata && article.ok) {
+    const reportingEvidence = normalizeEvidenceItem({
+      id: `source-${article.domain || 'article'}`,
+      url: article.url || articleMetadata.url || rawInput,
+      canonicalUrl: article.url || articleMetadata.url || rawInput,
+      domain: article.domain || getRegistrableDomain(article.url || rawInput) || 'news.detik.com',
+      publisher: articleMetadata.publisher || article.domain || 'Media Pelapor',
+      title: articleMetadata.title || claimStructure.mainClaim || 'Artikel Sumber',
+      author: articleMetadata.author || 'Redaksi',
+      publishedAt: articleMetadata.publishedAt || new Date().toISOString().slice(0, 10),
+      sourceType: 'news',
+      tier: 2,
+      snippet: articleMetadata.description || (article.content?.text ? article.content.text.slice(0, 220) : ''),
+      content: article.content?.text || '',
+      stance: 'supports',
+      matchType: 'PRIMARY_REPORTING_SOURCE',
+      similarityScore: 1.0,
+      relevance: 'high',
+    });
+    if (!gatheredEvidences.some((ge) => ge.url === reportingEvidence.url || ge.id === reportingEvidence.id)) {
+      gatheredEvidences.unshift(reportingEvidence);
+    }
+  }
+
   if (priorFactCheckRecord && priorFactCheckRecord.evidence) {
     for (const ev of priorFactCheckRecord.evidence) {
       if (!gatheredEvidences.some((ge) => ge.id === ev.id || ge.url === ev.url)) {
@@ -302,13 +329,15 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
   // LANGKAH 7: Menyusun kesimpulan & keyakinan
   notifyProgress(PIPELINE_STATES.BUILDING_VERDICT);
   const atomicSynthesis = synthesizeOverallVerdict(evaluatedAtomicClaims);
-  const priorVerdictToUse = priorFactCheckRecord?.verdict || atomicSynthesis.verdict;
+  // Prior verdict HANYA berasal dari catatan verifikasi pemeriksa fakta manusia yang terverifikasi
+  const priorVerdictToUse = priorFactCheckRecord ? priorFactCheckRecord.verdict : null;
 
   const verdictResult = determineVerdict({
     evidence: gatheredEvidences,
     contentRetrieved,
     evidenceSearchPerformed: true,
     priorVerdict: priorVerdictToUse,
+    sourceClusters,
   });
 
   const confidenceResult = computeConfidence({
@@ -422,5 +451,91 @@ export async function runVerification(rawInput, onProgressOrOptions, options = {
       engine: 'VeriFact Evidence Intelligence Engine 4.2',
       standards: 'IFCN Code of Principles & Transparent Evidence Ledger',
     },
+  };
+}
+
+/**
+ * Perluas Penelusuran / Cari Bukti Lebih Lanjut (§Part 12)
+ * Memperluas query pencarian ke variasi kata kunci resmi, arsip bantahan, dan otoritas.
+ *
+ * @param {object} currentResult
+ * @param {object} options
+ * @returns {Promise<object>}
+ */
+export async function searchMoreEvidence(currentResult = {}, options = {}) {
+  if (!currentResult || !currentResult.claim) {
+    return currentResult;
+  }
+
+  const claimText = currentResult.claim.mainClaim || '';
+  const atomicClaims = currentResult.atomicClaims || [];
+  const existingEvidences = currentResult.evidence || [];
+
+  // Perluas variasi query pencarian
+  const expandedQueries = [
+    { query: `klarifikasi resmi ${claimText}`.slice(0, 80), intent: 'refute' },
+    { query: `siaran pers pemerintah ${claimText}`.slice(0, 80), intent: 'support' },
+    { query: `cek fakta turnbackhoax ${claimText}`.slice(0, 80), intent: 'refute' },
+    { query: `konfirmasi kementerian ${claimText}`.slice(0, 80), intent: 'support' },
+  ];
+
+  const providerResults = await gatherEvidenceFromAllProviders(
+    claimText,
+    { deepSearch: true, ...options },
+    expandedQueries
+  );
+
+  const newEvidences = [...existingEvidences];
+  let addedCount = 0;
+
+  for (const item of (providerResults.evidence || [])) {
+    if (!newEvidences.some((e) => e.url === item.url || e.id === item.id)) {
+      newEvidences.push(item);
+      addedCount++;
+    }
+  }
+
+  const sourceClusters = clusterSources(newEvidences);
+  const evaluatedAtomicClaims = evaluateAtomicClaims(atomicClaims, newEvidences);
+  const conflictAnalysis = detectEvidenceConflicts(newEvidences);
+
+  const verdictResult = determineVerdict({
+    evidence: newEvidences,
+    contentRetrieved: currentResult.contentRetrieved ?? true,
+    evidenceSearchPerformed: true,
+    priorVerdict: null,
+    sourceClusters,
+  });
+
+  const confidenceResult = computeConfidence({
+    verdict: verdictResult.verdict,
+    evidence: newEvidences,
+    stats: verdictResult.stats,
+    contentRetrieved: currentResult.contentRetrieved ?? true,
+    evidenceSearchPerformed: true,
+    priorFactCheck: false,
+  });
+
+  const extendedSearchNotice = addedCount > 0
+    ? `Ditemukan ${addedCount} sumber tambahan setelah memperluas penelusuran.`
+    : 'VeriFact ID telah memperluas pencarian ke basis data periksa fakta dan media independen, tetapi belum menemukan sumber tambahan yang memverifikasi atau membantah laporan ini.';
+
+  return {
+    ...currentResult,
+    evidence: newEvidences,
+    sourceClusters,
+    atomicClaims: evaluatedAtomicClaims,
+    conflictAnalysis,
+    verdict: verdictResult.verdict,
+    status: verdictResult.verdict,
+    stats: verdictResult.stats,
+    confidence: {
+      ...confidenceResult,
+      sourceCoverage: newEvidences.length >= 3 ? 'High' : newEvidences.length >= 2 ? 'Medium' : 'Low',
+      primarySourcesCount: newEvidences.filter((e) => e.tier === 1).length,
+      independentClustersCount: sourceClusters.length,
+    },
+    extendedSearchPerformed: true,
+    extendedSearchNotice,
   };
 }

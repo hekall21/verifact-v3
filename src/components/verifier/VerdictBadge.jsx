@@ -64,11 +64,14 @@ export function VerdictBadge({ verdict = VERDICT.UNPROVEN, lang = 'id', size = '
 
   const renderIcon = () => {
     switch (verdict) {
+      case VERDICT.VERIFIED_TRUE:
       case VERDICT.FACT:
         return <CheckCircleIcon className="w-5 h-5 shrink-0" />;
+      case VERDICT.SUPPORTED:
       case VERDICT.PARTLY_TRUE:
       case VERDICT.MISLEADING:
         return <AlertTriangleIcon className="w-5 h-5 shrink-0" />;
+      case VERDICT.FALSE:
       case VERDICT.HOAX:
       case VERDICT.DISINFORMATION:
         return <AlertOctagonIcon className="w-5 h-5 shrink-0" />;

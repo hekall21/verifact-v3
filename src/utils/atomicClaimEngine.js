@@ -129,8 +129,8 @@ export function evaluateAtomicClaims(atomicClaims = [], evidenceList = []) {
       status = 'SUPPORTED';
       reasoning = 'Pernyataan ini terkonfirmasi dan didukung oleh dokumen atau laporan resmi.';
     } else if (contextWeight > 0) {
-      status = 'CONTEXT_CHANGED';
-      reasoning = 'Konteks informasi ini telah berubah atau merujuk pada peristiwa terdahulu.';
+      status = 'UNPROVEN';
+      reasoning = 'Informasi latar belakang ditemukan, namun belum cukup untuk memverifikasi atau membantah rincian pernyataan ini.';
     }
 
     return {
@@ -156,14 +156,14 @@ export function synthesizeOverallVerdict(evaluatedClaims = []) {
   const contextChanged = evaluatedClaims.filter((c) => c.status === 'CONTEXT_CHANGED').length;
   const total = evaluatedClaims.length;
 
-  if (refuted === total) {
+  if (refuted === total && total > 0) {
     return {
       verdict: 'HOAX',
       summary: 'Seluruh klaim spesifik terbukti tidak benar berdasarkan verifikasi bukti.',
     };
   }
 
-  if (supported === total) {
+  if (supported === total && total > 0) {
     return {
       verdict: 'FACT',
       summary: 'Seluruh klaim spesifik terkonfirmasi benar oleh sumber resmi primer.',
@@ -177,7 +177,7 @@ export function synthesizeOverallVerdict(evaluatedClaims = []) {
     };
   }
 
-  if (contextChanged > 0) {
+  if (contextChanged > 0 && supported > 0) {
     return {
       verdict: 'MISLEADING',
       summary: 'Informasi disebarkan di luar konteks waktu atau tempat peristiwa aslinya.',

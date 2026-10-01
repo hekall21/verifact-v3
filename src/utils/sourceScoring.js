@@ -127,24 +127,78 @@ export function computeConfidence({
 } = {}) {
   const factors = [];
 
-  // Tanpa pencarian bukti, keyakinan sistem memang sangat rendah.
+  // Kasus 1: Konten sumber belum berhasil dibaca -> Confidence N/A
+  if (!contentRetrieved || verdict === 'SOURCE_CONTENT_UNAVAILABLE') {
+    factors.push({ code: 'sourceContentUnavailable', impact: 0 });
+    return {
+      score: null,
+      band: 'notAvailable',
+      isNA: true,
+      factors,
+      note: 'sourceContentUnavailable',
+      sourceCoverage: 'Not Available',
+      primarySourcesCount: 0,
+      independentClustersCount: 0,
+    };
+  }
+
+  // Kasus 2: Pipeline pencarian bukti belum pernah dijalankan
   if (!evidenceSearchPerformed) {
     factors.push({ code: 'evidenceSearchNotPerformed', impact: -30 });
     return {
-      score: 8,
-      band: 'veryLow',
+      score: null,
+      band: 'notAvailable',
+      isNA: true,
       factors,
       note: 'noEvidencePipeline',
+      sourceCoverage: 'Not Available',
+      primarySourcesCount: 0,
+      independentClustersCount: 0,
     };
   }
 
   const usable = evidence.filter((e) => e && e.stance && e.stance !== 'unrelated');
+
+  // Kasus 3: Bukti kosong
   if (usable.length === 0) {
-    factors.push({ code: 'noRelevantEvidenceFound', impact: -25 });
-    return { score: 12, band: 'veryLow', factors, note: 'noEvidenceFound' };
+    factors.push({ code: 'noRelevantEvidenceFound', impact: 0 });
+    return {
+      score: null,
+      band: 'notAvailable',
+      isNA: true,
+      factors,
+      note: 'noEvidenceFound',
+      sourceCoverage: 'None',
+      primarySourcesCount: 0,
+      independentClustersCount: 0,
+    };
   }
 
-  // Basis: kualitas rata-rata evidence tertimbang tier & relevansi.
+  const domains = stats.independentDomains ?? new Set(usable.map((e) => e.domain).filter(Boolean)).size;
+  const clusters = stats.independentClusters ?? domains;
+  const officialCount = stats.officialCount ?? usable.filter((e) => e.tier === 1 || e.sourceType === 'official').length;
+  const factCheckCount = stats.factCheckCount ?? usable.filter((e) => e.tier === 3 || e.sourceType === 'fact_check').length;
+
+  // Kasus 4 (§17 & §18): Jika status inconclusive (UNVERIFIED / INSUFFICIENT_EVIDENCE / UNPROVEN)
+  // dan bukti belum memenuhi ambang batas independen (misal 1 media, 0 official, 0 fact check)
+  // JANGAN MENAMPILKAN PERSENTASE PALSU (misal 41%)!
+  if (isInconclusive(verdict) && officialCount === 0 && factCheckCount === 0 && clusters <= 1) {
+    factors.push({ code: 'minimumEvidenceNotMet', impact: 0 });
+    factors.push({ code: 'singleSourceNoOfficialConfirmation', impact: 0 });
+    return {
+      score: null,
+      band: 'notAvailable',
+      isNA: true,
+      factors,
+      note: 'insufficientEvidence',
+      sourceCoverage: 'Low',
+      primarySourcesCount: 0,
+      independentClustersCount: 1,
+    };
+  }
+
+  // Kasus 5: Menghitung tingkat keyakinan sistem dalam mendukung VERDICT yang dibuat (§15)
+  // Basis: kualitas rata-rata evidence tertimbang tier & relevansi
   let weighted = 0;
   for (const e of usable) {
     const tier = e.tier || classifyDomainTier(e.domain || '');
@@ -153,44 +207,43 @@ export function computeConfidence({
     weighted += w * rel * recencyFactor(e.publishedAt, now);
   }
   const avgQuality = weighted / usable.length; // 0..1
-  let score = 22 + avgQuality * 40; // 22..62
-  factors.push({ code: 'sourceReliability', impact: Math.round(avgQuality * 40) });
+  let score = 25 + avgQuality * 35; // 25..60
+  factors.push({ code: 'sourceReliability', impact: Math.round(avgQuality * 35) });
 
-  // Jumlah sumber independen.
-  const domains = stats.independentDomains ?? new Set(usable.map((e) => e.domain).filter(Boolean)).size;
-  if (domains >= 3) {
-    score += 12;
-    factors.push({ code: 'multipleIndependentSources', impact: 12 });
-  } else if (domains === 2) {
-    score += 7;
-    factors.push({ code: 'twoIndependentSources', impact: 7 });
+  // Kluster independen
+  if (clusters >= 3) {
+    score += 15;
+    factors.push({ code: 'multipleIndependentSources', impact: 15 });
+  } else if (clusters === 2) {
+    score += 8;
+    factors.push({ code: 'twoIndependentSources', impact: 8 });
   } else {
-    score -= 6;
-    factors.push({ code: 'singleSourceOnly', impact: -6 });
+    score -= 5;
+    factors.push({ code: 'singleSourceOnly', impact: -5 });
   }
 
-  // Sumber primer tersedia.
-  if (stats.hasPrimary) {
-    score += 10;
-    factors.push({ code: 'primarySourceAvailable', impact: 10 });
+  // Sumber primer tersedia
+  if (officialCount > 0 || stats.hasPrimary) {
+    score += 15;
+    factors.push({ code: 'primarySourceAvailable', impact: 15 });
   } else {
     score -= 5;
     factors.push({ code: 'noPrimarySource', impact: -5 });
   }
 
-  // Laporan pemeriksa fakta yang sudah terbit.
-  if (priorFactCheck || stats.hasFactCheck) {
-    score += 8;
-    factors.push({ code: 'factCheckReportExists', impact: 8 });
+  // Laporan pemeriksa fakta yang sudah terbit
+  if (priorFactCheck || factCheckCount > 0 || stats.hasFactCheck) {
+    score += 12;
+    factors.push({ code: 'factCheckReportExists', impact: 12 });
   }
 
-  // Konsistensi arah bukti.
+  // Konsistensi arah bukti
   const supporting = stats.supporting ?? 0;
   const refuting = stats.refuting ?? 0;
   const directional = supporting + refuting;
   if (directional > 0) {
     const dominance = Math.abs(supporting - refuting) / directional;
-    const impact = Math.round(dominance * 12 - 6); // -6..+6
+    const impact = Math.round(dominance * 14 - 4); // -4..+10
     score += impact;
     factors.push({ code: dominance >= 0.6 ? 'consistentEvidenceDirection' : 'conflictingEvidence', impact });
   } else {
@@ -198,30 +251,45 @@ export function computeConfidence({
     factors.push({ code: 'onlyContextualEvidence', impact: -4 });
   }
 
-  // Isi sumber yang diperiksa berhasil dibaca.
-  if (contentRetrieved) {
-    score += 6;
-    factors.push({ code: 'sourceContentRetrieved', impact: 6 });
-  } else {
-    score -= 8;
-    factors.push({ code: 'sourceContentUnavailable', impact: -8 });
-  }
+  // Isi sumber berhasil dibaca
+  score += 5;
+  factors.push({ code: 'sourceContentRetrieved', impact: 5 });
 
-  // Status yang tidak menyimpulkan tidak boleh tampil dengan keyakinan tinggi.
+  // Status inconclusive dengan beberapa bukti (misal ada 2 sumber yang saling kontradiksi)
   if (isInconclusive(verdict)) {
     score = Math.min(score, 45);
     factors.push({ code: 'inconclusiveVerdictCap', impact: 0 });
   }
 
-  const final = Math.max(5, Math.min(92, Math.round(score)));
-  return { score: final, band: confidenceBand(final), factors, note: null };
+  const finalScore = Math.max(10, Math.min(96, Math.round(score)));
+  let coverage = 'Low';
+  if (clusters >= 3 || usable.length >= 4) coverage = 'High';
+  else if (clusters >= 2 || usable.length >= 2) coverage = 'Medium';
+
+  return {
+    score: finalScore,
+    band: confidenceBand(finalScore),
+    factors,
+    note: null,
+    sourceCoverage: coverage,
+    primarySourcesCount: officialCount,
+    independentClustersCount: clusters,
+  };
 }
 
-/** Pita keyakinan untuk pelabelan i18n. */
+/**
+ * Pita keyakinan untuk pelabelan i18n (§16).
+ * 0–29: SANGAT RENDAH (veryLow)
+ * 30–49: RENDAH (low)
+ * 50–69: SEDANG (moderate)
+ * 70–84: TINGGI (high)
+ * 85–100: SANGAT TINGGI (veryHigh)
+ */
 export function confidenceBand(score) {
-  if (score < 20) return 'veryLow';
-  if (score < 40) return 'low';
-  if (score < 60) return 'moderate';
-  if (score < 78) return 'high';
+  if (score === null || score === undefined) return 'notAvailable';
+  if (score < 30) return 'veryLow';
+  if (score < 50) return 'low';
+  if (score < 70) return 'moderate';
+  if (score < 85) return 'high';
   return 'veryHigh';
 }

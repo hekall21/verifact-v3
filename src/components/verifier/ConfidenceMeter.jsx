@@ -64,9 +64,13 @@ export function ConfidenceMeter({ confidence = null, lang = 'id' }) {
           </h4>
           <p className="text-xs max-w-md leading-relaxed" style={{ color: 'var(--vf-text-secondary)' }}>
             {isUnavailable
-              ? (lang === 'id'
-                  ? 'Sistem belum memperoleh isi artikel sehingga belum dapat menghitung keyakinan terhadap klaim.'
-                  : 'The system has not retrieved the article content, so confidence cannot be calculated.')
+              ? (confidence?.note === 'insufficientEvidence'
+                  ? (lang === 'id'
+                      ? 'Bukti independen yang tersedia belum cukup untuk menghitung keyakinan faktual secara meyakinkan.'
+                      : 'Available independent evidence is insufficient to calculate factual confidence.')
+                  : (lang === 'id'
+                      ? 'Sistem belum memperoleh isi artikel sehingga belum dapat menghitung keyakinan terhadap klaim.'
+                      : 'The system has not retrieved the article content, so confidence cannot be calculated.'))
               : (lang === 'id'
                   ? 'Menilai kekuatan dan independensi bukti yang berhasil dikumpulkan, bukan persentase kebenaran klaim.'
                   : 'Assesses the strength and independence of gathered evidence, not claim probability.')}

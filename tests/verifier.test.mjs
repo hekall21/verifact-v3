@@ -22,7 +22,7 @@ import { classifyInput, isValidUrl, parseUrl, isNewsHomepageUrl } from '../src/u
 import { extractClaim, extractAmounts } from '../src/utils/claimExtractor.js';
 import { determineVerdict, VERDICT } from '../src/utils/verdict.js';
 import { computeConfidence } from '../src/utils/sourceScoring.js';
-import { runVerification } from '../src/services/analysisService.js';
+import { runVerification, searchMoreEvidence } from '../src/services/analysisService.js';
 import { translate } from '../src/i18n/index.js';
 
 import {
@@ -323,7 +323,7 @@ test('Test 13: URL retrieval failure integrity: error message tidak boleh menjad
   assert.equal(res.contentRetrieved, false);
 });
 
-test('Test 14: URL berita riil (Detik) berhasil diekstrak kontennya, menghasilkan claim judul berita asli dan confidence terhitung', async () => {
+test('Test 14: URL berita riil (Detik) mematuhi Minimum Evidence Rule: UNVERIFIED, Confidence N/A, 1 Media Source', async () => {
   const detikArticleUrl = 'https://news.detik.com/berita/d-8686957/klaster-mewah-lapas-cibinong-kini-rata-dengan-tanah';
   const res = await runVerification(detikArticleUrl);
 
@@ -331,8 +331,25 @@ test('Test 14: URL berita riil (Detik) berhasil diekstrak kontennya, menghasilka
   assert.equal(res.contentRetrieved, true);
   assert.ok(res.claim, 'Claim harus berhasil diekstrak');
   assert.match(res.claim.mainClaim, /Lapas Cibinong/i, 'Judul artikel Detik harus menjadi klaim utama');
-  assert.ok(res.confidence, 'Confidence harus terhitung');
-  assert.ok(typeof res.confidence.score === 'number' && res.confidence.score > 0, 'Confidence score harus > 0%');
+  assert.equal(res.verdict, VERDICT.UNVERIFIED, 'Verdict harus UNVERIFIED karena bukti belum cukup');
+  assert.notEqual(res.verdict, VERDICT.MISLEADING, 'TIDAK BOLEH salah vonis MENYESATKAN');
+  assert.notEqual(res.verdict, VERDICT.FALSE, 'TIDAK BOLEH salah vonis SALAH');
+  assert.equal(res.confidence.score, null, 'Confidence score harus null / N/A untuk 1 media tanpa konfirmasi resmi');
+  assert.equal(res.confidence.band, 'notAvailable');
+  assert.ok(res.evidence.length >= 1, 'Harus mencantumkan artikel Detik sebagai sumber pelaporan (Tier 2)');
+  assert.equal(res.stats.officialCount, 0, 'Official count harus 0');
+  assert.ok(res.stats.mediaCount >= 1, 'Media count minimal 1');
+  assert.equal(res.stats.factCheckCount, 0, 'Fact-check count harus 0');
   assert.notEqual(res.status, 'SOURCE_CONTENT_UNAVAILABLE');
+});
+
+test('Test 15: searchMoreEvidence memperluas pencarian bukti secara transparan tanpa klaim palsu', async () => {
+  const detikArticleUrl = 'https://news.detik.com/berita/d-8686957/klaster-mewah-lapas-cibinong-kini-rata-dengan-tanah';
+  const initialRes = await runVerification(detikArticleUrl);
+  const expandedRes = await searchMoreEvidence(initialRes);
+
+  assert.equal(expandedRes.ok, true);
+  assert.equal(expandedRes.extendedSearchPerformed, true);
+  assert.ok(expandedRes.extendedSearchNotice, 'Harus menyertakan pesan transparan hasil perluasan');
 });
 

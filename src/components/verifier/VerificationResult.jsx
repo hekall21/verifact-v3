@@ -16,7 +16,7 @@
  * 5. Dukungan penuh Dark/Light Mode dengan CSS variable tokens (tanpa hardcoded text-slate-300).
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VerdictBadge } from './VerdictBadge.jsx';
 import { ConfidenceMeter } from './ConfidenceMeter.jsx';
 import { EvidenceLedger } from './EvidenceLedger.jsx';
@@ -26,15 +26,22 @@ import { TemporalTimelineCard } from './TemporalTimelineCard.jsx';
 import { WhyThisResultModal } from './WhyThisResultModal.jsx';
 import { CopyIcon, CheckIcon, RefreshIcon, SearchIcon, ExternalLinkIcon, ShieldIcon } from '../common/Icons.jsx';
 import { buildShareableReportUrl } from '../../utils/reportIntegrity.js';
+import { searchMoreEvidence } from '../../services/analysisService.js';
 import { t } from '../../i18n/index.js';
 
 export function VerificationResult({ result = {}, onReset, onRetry, lang = 'id' }) {
+  const [activeResult, setActiveResult] = useState(result);
+  const [searchingMore, setSearchingMore] = useState(false);
   const [copied, setCopied] = useState(false);
   const [whyOpen, setWhyOpen] = useState(false);
   const [activeSection, setActiveSection] = useState(result.claim ? 'summary' : 'limitations');
 
+  useEffect(() => {
+    setActiveResult(result);
+  }, [result]);
+
   const {
-    status = result.verdict,
+    status = activeResult.verdict,
     verdict,
     confidence = null,
     claim = null,
@@ -49,11 +56,26 @@ export function VerificationResult({ result = {}, onReset, onRetry, lang = 'id' 
     temporalAnalysis = {},
     limitations = [],
     auditTrail = [],
-    honestNotice = result.honestNotice,
-    sourceAttributionNotice = result.sourceAttributionNotice,
-    patternSignals = result.patternSignals || [],
-    isNewsHomepage = result.isNewsHomepage || false,
-  } = result;
+    honestNotice = activeResult.honestNotice,
+    sourceAttributionNotice = activeResult.sourceAttributionNotice,
+    patternSignals = activeResult.patternSignals || [],
+    isNewsHomepage = activeResult.isNewsHomepage || false,
+    extendedSearchPerformed = activeResult.extendedSearchPerformed || false,
+    extendedSearchNotice = activeResult.extendedSearchNotice,
+  } = activeResult;
+
+  const handleSearchMore = async () => {
+    if (searchingMore) return;
+    setSearchingMore(true);
+    try {
+      const updated = await searchMoreEvidence(activeResult);
+      setActiveResult(updated);
+    } catch (err) {
+      console.error('[Search More Evidence Error]', err);
+    } finally {
+      setSearchingMore(false);
+    }
+  };
 
   const isSourceUnavailable = status === 'SOURCE_CONTENT_UNAVAILABLE' || verdict === 'SOURCE_CONTENT_UNAVAILABLE' || claim === null;
   const isHomepage = status === 'NEWS_HOMEPAGE_DETECTED' || verdict === 'NEWS_HOMEPAGE_DETECTED' || isNewsHomepage;
@@ -364,6 +386,72 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
           >
             <ShieldIcon className="w-4 h-4 text-indigo-500 shrink-0" />
             <span>{sourceAttributionNotice}</span>
+          </div>
+        )}
+
+        {/* Banner Status Minimum Evidence / Belum Terbukti */}
+        {(verdict === 'UNVERIFIED' || verdict === 'INSUFFICIENT_EVIDENCE' || verdict === 'UNPROVEN') && claim && !isSourceUnavailable && (
+          <div
+            className="p-4 sm:p-5 rounded-xl border space-y-3"
+            style={{
+              backgroundColor: 'color-mix(in srgb, var(--vf-unproven) 10%, transparent)',
+              borderColor: 'color-mix(in srgb, var(--vf-unproven) 35%, transparent)',
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-xl">ℹ️</span>
+              <div className="space-y-1.5 text-xs sm:text-sm leading-relaxed flex-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h4 className="font-bold tracking-wide uppercase" style={{ color: 'var(--vf-text)' }}>
+                    {lang === 'id' ? 'STATUS: BELUM TERBUKTI (BUKTI BELUM CUKUP)' : 'STATUS: UNVERIFIED (INSUFFICIENT EVIDENCE)'}
+                  </h4>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-500/10 text-slate-500 border border-slate-500/20">
+                    {lang === 'id' ? 'Standar Minimum Bukti' : 'Minimum Evidence Rule'}
+                  </span>
+                </div>
+                <p style={{ color: 'var(--vf-text-secondary)' }}>
+                  {extendedSearchNotice || (
+                    lang === 'id'
+                      ? 'Artikel berita berhasil dianalisis. Namun, belum ada sumber resmi atau laporan cek fakta independen yang mengonfirmasi atau membantah laporan ini.'
+                      : 'The news article was successfully analyzed. However, there are not yet sufficient official sources or independent fact-check reports to confirm or refute this report.'
+                  )}
+                </p>
+
+                {/* Workflow Button: Cari Bukti Lebih Lanjut */}
+                <div className="pt-2 flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={handleSearchMore}
+                    disabled={searchingMore}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-2 transition-all shadow-sm border hover:opacity-90 active:scale-95 disabled:opacity-50"
+                    style={{
+                      backgroundColor: 'var(--vf-surface)',
+                      borderColor: 'var(--vf-border)',
+                      color: 'var(--vf-primary)',
+                    }}
+                  >
+                    {searchingMore ? (
+                      <>
+                        <RefreshIcon className="w-3.5 h-3.5 animate-spin" />
+                        <span>{lang === 'id' ? 'Memperluas pencarian bukti...' : 'Searching more sources...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <SearchIcon className="w-3.5 h-3.5" />
+                        <span>{lang === 'id' ? 'Cari Bukti Lebih Lanjut' : 'Search More Evidence'}</span>
+                      </>
+                    )}
+                  </button>
+
+                  {extendedSearchPerformed && (
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center space-x-1">
+                      <CheckIcon className="w-3.5 h-3.5" />
+                      <span>{lang === 'id' ? 'Penelusuran telah diperluas' : 'Search expanded'}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

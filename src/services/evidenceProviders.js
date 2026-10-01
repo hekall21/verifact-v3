@@ -163,39 +163,10 @@ export const NewsSearchProvider = {
   name: 'NewsSearchProvider',
   tier: 2,
   async search(query, context = {}) {
-    const qLower = String(query || '').toLowerCase();
-    const results = [];
-
-    const REPUTABLE_MEDIA = [
-      { name: 'LKBN ANTARA', domain: 'antaranews.com', url: 'https://antaranews.com' },
-      { name: 'Harian Kompas', domain: 'kompas.id', url: 'https://kompas.id' },
-      { name: 'Koran Tempo', domain: 'tempo.co', url: 'https://tempo.co' },
-      { name: 'BBC News Indonesia', domain: 'bbc.com', url: 'https://bbc.com/indonesia' },
-    ];
-
-    // Jika ada kata kunci berita umum yang relevan
-    if (qLower.length > 5) {
-      const selectedMedia = REPUTABLE_MEDIA[0];
-      results.push(
-        normalizeEvidenceItem({
-          id: `news-${selectedMedia.domain}`,
-          url: selectedMedia.url,
-          canonicalUrl: selectedMedia.url,
-          domain: selectedMedia.domain,
-          publisher: selectedMedia.name,
-          title: `Liputan Investigasi & Berita: ${qLower.slice(0, 50)}`,
-          author: `Redaksi ${selectedMedia.name}`,
-          sourceType: 'news',
-          tier: 2,
-          snippet: `Liputan fakta dari media nasional terakreditasi terkait isu tersebut.`,
-          stance: 'context',
-          matchType: 'SECONDARY_REPORTING',
-          similarityScore: 0.6,
-        })
-      );
-    }
-
-    return results;
+    // Menghormati prinsip integritas data:
+    // Tidak mengarang artikel media fiktif jika tidak ada indeks artikel nyata.
+    // Jika masukan pengguna adalah URL berita, artikel tersebut otomatis menjadi Tier 2 di analysisService.
+    return [];
   },
 };
 
