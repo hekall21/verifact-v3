@@ -1,0 +1,12 @@
+{
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/api/v1/article", "destination": "/api/v1/article" },
+    { "source": "/api/v4/article", "destination": "/api/v1/article" },
+    { "source": "/api/article", "destination": "/api/article" },
+    { "source": "/api/analyze", "destination": "/api/analyze" },
+    { "source": "/api/v4/verify", "destination": "/api/analyze" },
+    { "source": "/api/health", "destination": "/api/health" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}
