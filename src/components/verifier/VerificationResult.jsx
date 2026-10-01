@@ -28,15 +28,16 @@ import { CopyIcon, CheckIcon, RefreshIcon, SearchIcon, ExternalLinkIcon, ShieldI
 import { buildShareableReportUrl } from '../../utils/reportIntegrity.js';
 import { t } from '../../i18n/index.js';
 
-export function VerificationResult({ result = {}, onReset, lang = 'id' }) {
+export function VerificationResult({ result = {}, onReset, onRetry, lang = 'id' }) {
   const [copied, setCopied] = useState(false);
   const [whyOpen, setWhyOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState('summary'); // 'summary' | 'evidence' | 'sources' | 'timeline' | 'limitations'
+  const [activeSection, setActiveSection] = useState(result.claim ? 'summary' : 'limitations');
 
   const {
+    status = result.verdict,
     verdict,
-    confidence = {},
-    claim = {},
+    confidence = null,
+    claim = null,
     sourceInaccessible = false,
     evidence = [],
     timestamp,
@@ -54,18 +55,26 @@ export function VerificationResult({ result = {}, onReset, lang = 'id' }) {
     isNewsHomepage = result.isNewsHomepage || false,
   } = result;
 
+  const isSourceUnavailable = status === 'SOURCE_CONTENT_UNAVAILABLE' || verdict === 'SOURCE_CONTENT_UNAVAILABLE' || claim === null;
+  const isHomepage = status === 'NEWS_HOMEPAGE_DETECTED' || verdict === 'NEWS_HOMEPAGE_DETECTED' || isNewsHomepage;
+
   const gatheredEvidences = evidence || [];
-  const primaryCount = gatheredEvidences.filter((e) => e.tier === 1).length;
-  const mediaCount = gatheredEvidences.filter((e) => e.tier === 2).length;
-  const factCheckCount = gatheredEvidences.filter((e) => e.tier === 3 || e.sourceType === 'fact_check').length;
+  const primaryCount = isSourceUnavailable ? '—' : gatheredEvidences.filter((e) => e.tier === 1).length;
+  const mediaCount = isSourceUnavailable ? '—' : gatheredEvidences.filter((e) => e.tier === 2).length;
+  const factCheckCount = isSourceUnavailable ? '—' : gatheredEvidences.filter((e) => e.tier === 3 || e.sourceType === 'fact_check').length;
 
   const handleCopySummary = () => {
     const verdictLabel = t(lang, `verifier.verdict.${verdict}.label`) || verdict;
+    const confidenceText = (confidence && typeof confidence.score === 'number')
+      ? `${confidence.score}%`
+      : (lang === 'id' ? 'N/A (Belum Tersedia)' : 'N/A (Not Available)');
+    const claimText = claim?.mainClaim || (lang === 'id' ? '[Isi artikel belum berhasil dibaca]' : '[Source content unavailable]');
+
     const summaryText = `[VeriFact ID 4.2 Report]
 Verification ID: ${verificationId || 'VF-2026-XXXXXX'}
-Status: ${verdictLabel} (Keyakinan Hasil: ${confidence.score || 0}%)
-Cakupan: ${confidence.sourceCoverage || 'Low'}
-Klaim: "${claim.mainClaim || ''}"
+Status: ${verdictLabel} (Keyakinan Hasil: ${confidenceText})
+Cakupan: ${confidence?.sourceCoverage || 'N/A'}
+Klaim: "${claimText}"
 Waktu: ${new Date(timestamp || Date.now()).toISOString()}
 Detail: ${buildShareableReportUrl(verificationId || '')}`;
 
@@ -173,21 +182,122 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
             <VerdictBadge verdict={verdict} lang={lang} size="lg" />
           </div>
 
-          <div>
-            <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: 'var(--vf-text-muted)' }}>
-              {lang === 'id' ? 'Klaim Utama yang Diperiksa:' : 'Primary Claim Verified:'}
-            </span>
-            <h2
-              className="text-lg sm:text-2xl font-bold tracking-tight leading-snug"
+          {claim && claim.mainClaim ? (
+            <div>
+              <span className="text-[11px] font-bold uppercase tracking-wider block mb-1" style={{ color: 'var(--vf-text-muted)' }}>
+                {lang === 'id' ? 'Klaim Utama yang Diperiksa:' : 'Primary Claim Verified:'}
+              </span>
+              <h2
+                className="text-lg sm:text-2xl font-bold tracking-tight leading-snug"
+                style={{
+                  color: 'var(--vf-text)',
+                  fontFamily: 'var(--font-display)',
+                  maxWidth: '65ch',
+                }}
+              >
+                &ldquo;{claim.mainClaim}&rdquo;
+              </h2>
+            </div>
+          ) : (
+            /* Dedicated UI When Article Retrieval Failed or Root Domain Detected (§4 & §5) */
+            <div
+              className="p-5 rounded-2xl border space-y-4 my-2"
               style={{
-                color: 'var(--vf-text)',
-                fontFamily: 'var(--font-display)',
-                maxWidth: '65ch',
+                backgroundColor: 'var(--vf-surface-muted)',
+                borderColor: 'var(--vf-border)',
               }}
             >
-              &ldquo;{claim.mainClaim}&rdquo;
-            </h2>
-          </div>
+              <div className="space-y-1.5">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 inline-block">
+                  {isHomepage ? 'NEWS HOMEPAGE' : 'SOURCE CONTENT UNAVAILABLE'}
+                </span>
+                <h3
+                  className="text-base sm:text-xl font-bold tracking-tight"
+                  style={{ color: 'var(--vf-text)', fontFamily: 'var(--font-display)' }}
+                >
+                  {isHomepage
+                    ? (lang === 'id' ? 'Halaman Utama Portal Media Terdeteksi' : 'News Portal Homepage Detected')
+                    : (lang === 'id' ? 'Konten Artikel Belum Berhasil Dibaca' : 'Article Content Could Not Be Retrieved')}
+                </h3>
+                <p className="text-xs sm:text-sm leading-relaxed" style={{ color: 'var(--vf-text-secondary)' }}>
+                  {isHomepage
+                    ? (lang === 'id'
+                        ? 'Tautan yang dimasukkan merupakan alamat beranda portal media, bukan URL artikel berita tertentu. Untuk verifikasi faktual, masukkan URL artikel spesifik.'
+                        : 'The URL entered is the homepage of a news publisher, not a specific article. Please enter a specific article link to run verification.')
+                    : (lang === 'id'
+                        ? 'Artikel terdeteksi, tetapi isi halaman belum berhasil dibaca oleh server (bukan vonis salah/benar terhadap isi berita).'
+                        : 'The article link was recognized, but the page body text could not be extracted by the crawler.')}
+                </p>
+              </div>
+
+              {!isHomepage && (
+                <div className="space-y-1.5 pt-2 border-t text-xs" style={{ borderColor: 'var(--vf-border)' }}>
+                  <span className="font-semibold block" style={{ color: 'var(--vf-text)' }}>
+                    {lang === 'id' ? 'Alasan teknis pembatasan perayapan:' : 'Technical extraction limitations:'}
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs" style={{ color: 'var(--vf-text-muted)' }}>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-amber-500">&bull;</span>
+                      <span>Request timeout / perlambatan jaringan</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-amber-500">&bull;</span>
+                      <span>Proteksi bot / verifikasi Cloudflare WAF</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-amber-500">&bull;</span>
+                      <span>Halaman memerlukan JavaScript client rendering</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-amber-500">&bull;</span>
+                      <span>Artikel tertutup paywall / login anggota</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Actionable buttons */}
+              <div className="pt-2 flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white shadow hover:opacity-90 active:scale-95 transition-all"
+                  style={{ backgroundColor: 'var(--vf-primary)' }}
+                >
+                  {lang === 'id' ? 'Tempel Teks Artikel' : 'Paste Article Text'}
+                </button>
+
+                {onRetry && (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    className="px-3.5 py-2 rounded-xl text-xs font-semibold border shadow-sm hover:opacity-85 active:scale-95 transition-all flex items-center space-x-1.5"
+                    style={{
+                      backgroundColor: 'var(--vf-surface)',
+                      borderColor: 'var(--vf-border)',
+                      color: 'var(--vf-text)',
+                    }}
+                  >
+                    <RefreshIcon className="w-3.5 h-3.5" />
+                    <span>{lang === 'id' ? 'Coba Lagi (Retry)' : 'Retry'}</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={onReset}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold border shadow-sm hover:opacity-85 active:scale-95 transition-all"
+                  style={{
+                    backgroundColor: 'var(--vf-surface)',
+                    borderColor: 'var(--vf-border)',
+                    color: 'var(--vf-text)',
+                  }}
+                >
+                  {lang === 'id' ? 'Masukkan URL Artikel Lain' : 'Enter Another URL'}
+                </button>
+              </div>
+            </div>
+          )}
 
           <p
             className="text-sm sm:text-base leading-relaxed"
@@ -202,7 +312,7 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
         </div>
 
         {/* Honest Notice for Inaccessible Source / News Homepage */}
-        {honestNotice && (
+        {honestNotice && claim && (
           <div
             className="p-4 sm:p-5 rounded-xl border space-y-3"
             style={{
@@ -265,7 +375,7 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
           >
             <span className="text-[10px] block" style={{ color: 'var(--vf-text-muted)' }}>Total Bukti</span>
             <span className="text-base font-bold" style={{ color: 'var(--vf-text)' }}>
-              {gatheredEvidences.length} Sumber
+              {isSourceUnavailable ? '—' : `${gatheredEvidences.length} Sumber`}
             </span>
           </div>
           <div
@@ -274,7 +384,7 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
           >
             <span className="text-[10px] block" style={{ color: 'var(--vf-text-muted)' }}>Sumber Resmi</span>
             <span className="text-base font-bold text-sky-600 dark:text-sky-400">
-              {primaryCount} Otoritas
+              {isSourceUnavailable ? '—' : `${primaryCount} Otoritas`}
             </span>
           </div>
           <div
@@ -283,7 +393,7 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
           >
             <span className="text-[10px] block" style={{ color: 'var(--vf-text-muted)' }}>Media Kredibel</span>
             <span className="text-base font-bold" style={{ color: 'var(--vf-text)' }}>
-              {mediaCount} Redaksi
+              {isSourceUnavailable ? '—' : `${mediaCount} Redaksi`}
             </span>
           </div>
           <div
@@ -292,7 +402,7 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
           >
             <span className="text-[10px] block" style={{ color: 'var(--vf-text-muted)' }}>Periksa Fakta</span>
             <span className="text-base font-bold text-indigo-600 dark:text-indigo-400">
-              {factCheckCount} Koalisi
+              {isSourceUnavailable ? '—' : `${factCheckCount} Koalisi`}
             </span>
           </div>
         </div>

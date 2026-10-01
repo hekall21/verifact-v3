@@ -211,6 +211,7 @@ export function App() {
               <VerificationResult
                 result={result}
                 onReset={handleClear}
+                onRetry={() => handleVerify(input)}
                 lang={lang}
               />
             )}

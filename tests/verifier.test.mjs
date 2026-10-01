@@ -73,11 +73,13 @@ test('Test 1: URL detik.com root wajib dikenali sebagai valid website domain, bu
   assert.equal(pipelineRes.ok, true);
   assert.equal(pipelineRes.isNewsHomepage, true);
   assert.equal(pipelineRes.status, 'NEWS_HOMEPAGE_DETECTED');
-  assert.equal(pipelineRes.verdict, VERDICT.UNVERIFIABLE);
-  assert.equal(pipelineRes.honestNotice.title, 'DOMAIN TERDETEKSI');
+  assert.equal(pipelineRes.verdict, 'NEWS_HOMEPAGE_DETECTED');
+  assert.equal(pipelineRes.claim, null, 'News homepage tidak boleh mengekstrak klaim fiktif');
+  assert.equal(pipelineRes.confidence, null, 'News homepage tidak boleh memiliki confidence 0%');
+  assert.equal(pipelineRes.honestNotice.title, 'HALAMAN UTAMA MEDIA TERDETEKSI');
 });
 
-test('Test 2: Multi-Strategy Extractor & DetikAdapter berhasil mengekstrak artikel berita riil', () => {
+test('Test 2: Multi-Strategy Extractor & DetikAdapter berhasil mengekstrak artikel berita riil bahkan dengan nested ads', () => {
   const sampleDetikHtml = `
     <!DOCTYPE html>
     <html>
@@ -89,7 +91,9 @@ test('Test 2: Multi-Strategy Extractor & DetikAdapter berhasil mengekstrak artik
       </head>
       <body>
         <div class="detail__body-text itp_bodycontent">
+          <div class="ad-container"><div class="inner-ad">Iklan Banner</div></div>
           <p>Jakarta - Kementerian Kesehatan memastikan program vaksinasi terbaru dapat diakses secara gratis oleh kelompok lanjut usia mulai pekan depan.</p>
+          <div class="ad-container"><div class="inner-ad">Iklan Tengah</div></div>
           <p>Menteri Kesehatan menyatakan anggaran telah disiapkan oleh pemerintah pusat untuk mencakup seluruh fasilitas kesehatan di daerah.</p>
           <p>Masyarakat diminta untuk mendaftar melalui puskesmas terdekat tanpa dipungut biaya apapun.</p>
         </div>
@@ -98,7 +102,7 @@ test('Test 2: Multi-Strategy Extractor & DetikAdapter berhasil mengekstrak artik
   `;
 
   const extracted = DetikAdapter.extract(sampleDetikHtml);
-  assert.ok(extracted, 'DetikAdapter harus berhasil mengekstrak konten');
+  assert.ok(extracted, 'DetikAdapter harus berhasil mengekstrak konten dengan nested ads');
   assert.match(extracted, /Kementerian Kesehatan memastikan program vaksinasi/);
   assert.match(extracted, /fasilitas kesehatan/);
 
@@ -107,7 +111,7 @@ test('Test 2: Multi-Strategy Extractor & DetikAdapter berhasil mengekstrak artik
   assert.ok(strategyResult.text.length > 50);
 });
 
-test('Test 3: URL tidak dapat diakses menghasilkan status SOURCE_CONTENT_UNAVAILABLE secara jujur dan bukan HOAX', async () => {
+test('Test 3: URL tidak dapat diakses menghasilkan status SOURCE_CONTENT_UNAVAILABLE, claim null, dan confidence null', async () => {
   const unreachableUrl = 'https://situs-berita-pasti-tidak-ada-999888.org/artikel-fiktif';
   const res = await runVerification(unreachableUrl);
 
@@ -115,11 +119,14 @@ test('Test 3: URL tidak dapat diakses menghasilkan status SOURCE_CONTENT_UNAVAIL
   assert.equal(res.sourceInaccessible, true);
   assert.equal(res.contentRetrieved, false);
   assert.equal(res.status, 'SOURCE_CONTENT_UNAVAILABLE');
-  assert.equal(res.verdict, VERDICT.UNVERIFIABLE);
-  assert.notEqual(res.verdict, VERDICT.HOAX, 'URL tidak dapat diakses TIDAK BOLEH divonis HOAKS sembarangan');
-  assert.notEqual(res.verdict, VERDICT.FACT, 'URL tidak dapat diakses TIDAK BOLEH divonis FAKTA sembarangan');
+  assert.equal(res.verdict, 'SOURCE_CONTENT_UNAVAILABLE');
+  assert.equal(res.claim, null, 'Error message TIDAK BOLEH pernah dijadikan claim');
+  assert.equal(res.confidence, null, 'Confidence harus null (bukan 0%) saat artikel tidak dapat dibaca');
+  assert.deepEqual(res.evidence, []);
+  assert.notEqual(res.verdict, VERDICT.HOAX, 'URL tidak dapat diakses TIDAK BOLEH divonis HOAKS');
+  assert.notEqual(res.verdict, VERDICT.FACT, 'URL tidak dapat diakses TIDAK BOLEH divonis FAKTA');
   assert.ok(res.honestNotice);
-  assert.equal(res.honestNotice.title, 'ARTIKEL TIDAK DAPAT DIBACA');
+  assert.equal(res.honestNotice.title, 'SOURCE CONTENT UNAVAILABLE');
 });
 
 // ============================================================
@@ -301,3 +308,19 @@ test('Test 12: Alih bahasa menerjemahkan status dan Official Reporting nav item'
   assert.ok(conf.score <= 45, 'Inconclusive verdict harus dibatasi pada keyakinan rendah');
   assert.ok(conf.factors.length > 0, 'Harus menyertakan faktor penentu keyakinan');
 });
+
+test('Test 13: URL retrieval failure integrity: error message tidak boleh menjadi claim, confidence harus null, status SOURCE_CONTENT_UNAVAILABLE', async () => {
+  // Contoh kasus detik yang tidak dapat diakses server
+  const mockUnreachableUrl = 'https://news.detik.com/berita/d-8686957/klaster-mewah-lapas-cibinong-kini-rata-dengan-tanah-unreachable-test';
+  const res = await runVerification(mockUnreachableUrl);
+
+  assert.equal(res.ok, true);
+  assert.equal(res.status, 'SOURCE_CONTENT_UNAVAILABLE');
+  assert.equal(res.verdict, 'SOURCE_CONTENT_UNAVAILABLE');
+  assert.equal(res.claim, null, 'Claim HARUS null, bukan string error message');
+  assert.equal(res.confidence, null, 'Confidence HARUS null, bukan score 0%');
+  assert.deepEqual(res.evidence, [], 'Evidence harus kosong');
+  assert.equal(res.sourceInaccessible, true);
+  assert.equal(res.contentRetrieved, false);
+});
+

@@ -17,8 +17,20 @@ import { t } from '../../i18n/index.js';
 
 export function VerdictBadge({ verdict = VERDICT.UNPROVEN, lang = 'id', size = 'md' }) {
   const tone = VERDICT_TONE[verdict] || 'unproven';
-  const label = t(lang, `verifier.verdict.${verdict}.label`);
-  const tagline = t(lang, `verifier.verdict.${verdict}.tagline`);
+  const label = t(lang, `verifier.verdict.${verdict}.label`) || (
+    verdict === 'SOURCE_CONTENT_UNAVAILABLE'
+      ? (lang === 'id' ? 'ARTIKEL TIDAK DAPAT DIBACA' : 'SOURCE CONTENT UNAVAILABLE')
+      : verdict === 'NEWS_HOMEPAGE_DETECTED'
+      ? (lang === 'id' ? 'HALAMAN UTAMA MEDIA' : 'NEWS HOMEPAGE DETECTED')
+      : verdict
+  );
+  const tagline = t(lang, `verifier.verdict.${verdict}.tagline`) || (
+    verdict === 'SOURCE_CONTENT_UNAVAILABLE'
+      ? (lang === 'id' ? 'Isi Halaman Belum Berhasil Dibaca' : 'Page Content Could Not Be Retrieved')
+      : verdict === 'NEWS_HOMEPAGE_DETECTED'
+      ? (lang === 'id' ? 'Beranda Portal Berita Terdeteksi' : 'News Portal Root Detected')
+      : ''
+  );
 
   const toneStyles = {
     fact: {
@@ -60,6 +72,12 @@ export function VerdictBadge({ verdict = VERDICT.UNPROVEN, lang = 'id', size = '
       case VERDICT.HOAX:
       case VERDICT.DISINFORMATION:
         return <AlertOctagonIcon className="w-5 h-5 shrink-0" />;
+      case 'SOURCE_CONTENT_UNAVAILABLE':
+      case VERDICT.SOURCE_CONTENT_UNAVAILABLE:
+        return <AlertTriangleIcon className="w-5 h-5 shrink-0 text-amber-500" />;
+      case 'NEWS_HOMEPAGE_DETECTED':
+      case VERDICT.NEWS_HOMEPAGE_DETECTED:
+        return <HelpCircleIcon className="w-5 h-5 shrink-0 text-indigo-500" />;
       default:
         return <HelpCircleIcon className="w-5 h-5 shrink-0" />;
     }

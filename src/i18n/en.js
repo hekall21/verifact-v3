@@ -128,6 +128,16 @@ export default {
         tagline: 'Claim Cannot Be Authenticated',
         summary: 'Source references are inaccessible, unverified, or too ambiguous for factual evaluation.',
       },
+      SOURCE_CONTENT_UNAVAILABLE: {
+        label: 'SOURCE CONTENT UNAVAILABLE',
+        tagline: 'Page Content Could Not Be Retrieved',
+        summary: 'The link was recognized, but the article text could not be downloaded (timeout, bot protection, JavaScript rendering, or crawler restrictions). VeriFact ID does not formulate speculative verdicts without reading the source content.',
+      },
+      NEWS_HOMEPAGE_DETECTED: {
+        label: 'NEWS HOMEPAGE DETECTED',
+        tagline: 'News Portal Root Detected',
+        summary: 'The URL provided is the homepage of a news publisher, not a specific article. Please enter a specific news article URL for verification.',
+      },
     },
     reasonCodes: {
       priorFactCheckExists: 'Found an official debunk from an accredited fact-checking organization.',
@@ -165,6 +175,7 @@ export default {
       inconclusiveVerdictCap: 'Capped at 45% for inconclusive findings',
     },
     confidenceBands: {
+      notAvailable: 'Not Available',
       veryLow: 'Very Low (Requires Additional Evidence)',
       low: 'Low (Limited Verification)',
       moderate: 'Moderate Confidence',

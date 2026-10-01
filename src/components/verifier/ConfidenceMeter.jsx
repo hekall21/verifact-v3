@@ -17,21 +17,24 @@ import React, { useState } from 'react';
 import { InfoIcon, ShieldIcon, CheckCircleIcon, AlertTriangleIcon } from '../common/Icons.jsx';
 import { t } from '../../i18n/index.js';
 
-export function ConfidenceMeter({ confidence = {}, lang = 'id' }) {
+export function ConfidenceMeter({ confidence = null, lang = 'id' }) {
   const [showBreakdown, setShowBreakdown] = useState(true);
 
-  const {
-    score = 20,
-    band = 'low',
-    factors = [],
-    sourceCoverage = 'Low',
-    primarySourcesCount = 0,
-    independentClustersCount = 0,
-  } = confidence;
+  const isUnavailable = confidence === null || confidence?.score === null || confidence?.score === undefined;
 
-  const bandLabel = t(lang, `verifier.confidenceBands.${band}`) || band;
+  const score = isUnavailable ? null : (confidence.score ?? 0);
+  const band = isUnavailable ? 'notAvailable' : (confidence.band || 'low');
+  const factors = isUnavailable ? [] : (confidence.factors || []);
+  const sourceCoverage = isUnavailable
+    ? (lang === 'id' ? 'Belum Tersedia' : 'Not Available')
+    : (confidence.sourceCoverage || 'Low');
+  const primarySourcesCount = isUnavailable ? '—' : (confidence.primarySourcesCount ?? 0);
+  const independentClustersCount = isUnavailable ? '—' : (confidence.independentClustersCount ?? 0);
+
+  const bandLabel = t(lang, `verifier.confidenceBands.${band}`) || (isUnavailable ? (lang === 'id' ? 'Belum Tersedia' : 'Not Available') : band);
 
   const getMeterColor = () => {
+    if (isUnavailable) return 'var(--vf-text-muted)';
     if (score >= 70) return 'var(--vf-fact)';
     if (score >= 45) return 'var(--vf-primary)';
     if (score >= 30) return 'var(--vf-partly)';
@@ -60,22 +63,29 @@ export function ConfidenceMeter({ confidence = {}, lang = 'id' }) {
             {lang === 'id' ? 'Tingkat Keyakinan Hasil' : 'Confidence in Result'}
           </h4>
           <p className="text-xs max-w-md leading-relaxed" style={{ color: 'var(--vf-text-secondary)' }}>
-            {lang === 'id'
-              ? 'Menilai kekuatan dan independensi bukti yang berhasil dikumpulkan, bukan persentase kebenaran klaim.'
-              : 'Assesses the strength and independence of gathered evidence, not claim probability.'}
+            {isUnavailable
+              ? (lang === 'id'
+                  ? 'Sistem belum memperoleh isi artikel sehingga belum dapat menghitung keyakinan terhadap klaim.'
+                  : 'The system has not retrieved the article content, so confidence cannot be calculated.')
+              : (lang === 'id'
+                  ? 'Menilai kekuatan dan independensi bukti yang berhasil dikumpulkan, bukan persentase kebenaran klaim.'
+                  : 'Assesses the strength and independence of gathered evidence, not claim probability.')}
           </p>
         </div>
 
         <div className="text-left sm:text-right shrink-0">
           <div className="flex items-baseline space-x-1 sm:justify-end">
             <span className="text-3xl font-black font-mono tracking-tight" style={{ color: getMeterColor() }}>
-              {score}%
+              {isUnavailable ? 'N/A' : `${score}%`}
             </span>
           </div>
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full inline-block mt-0.5"
             style={{
-              backgroundColor: 'color-mix(in srgb, var(--vf-primary) 12%, transparent)',
-              color: 'var(--vf-primary)',
+              backgroundColor: isUnavailable
+                ? 'var(--vf-surface-muted)'
+                : 'color-mix(in srgb, var(--vf-primary) 12%, transparent)',
+              color: isUnavailable ? 'var(--vf-text-muted)' : 'var(--vf-primary)',
+              border: isUnavailable ? '1px solid var(--vf-border)' : 'none',
             }}
           >
             {bandLabel}
@@ -89,7 +99,7 @@ export function ConfidenceMeter({ confidence = {}, lang = 'id' }) {
           <div
             className="h-full rounded-full transition-all duration-700"
             style={{
-              width: `${Math.max(5, Math.min(100, score))}%`,
+              width: isUnavailable ? '0%' : `${Math.max(5, Math.min(100, score))}%`,
               backgroundColor: getMeterColor(),
             }}
           />
@@ -109,11 +119,11 @@ export function ConfidenceMeter({ confidence = {}, lang = 'id' }) {
         </div>
         <div className="p-2.5 rounded-xl border" style={{ backgroundColor: 'var(--vf-surface-muted)', borderColor: 'var(--vf-border)' }}>
           <span className="text-[10px] block" style={{ color: 'var(--vf-text-muted)' }}>Sumber Primer</span>
-          <span className="font-bold" style={{ color: 'var(--vf-text)' }}>{primarySourcesCount} Instansi</span>
+          <span className="font-bold" style={{ color: 'var(--vf-text)' }}>{primarySourcesCount}{typeof primarySourcesCount === 'number' ? ' Instansi' : ''}</span>
         </div>
         <div className="p-2.5 rounded-xl border col-span-2 sm:col-span-1" style={{ backgroundColor: 'var(--vf-surface-muted)', borderColor: 'var(--vf-border)' }}>
           <span className="text-[10px] block" style={{ color: 'var(--vf-text-muted)' }}>Kluster Independen</span>
-          <span className="font-bold" style={{ color: 'var(--vf-text)' }}>{independentClustersCount} Domain</span>
+          <span className="font-bold" style={{ color: 'var(--vf-text)' }}>{independentClustersCount}{typeof independentClustersCount === 'number' ? ' Domain' : ''}</span>
         </div>
       </div>
 
@@ -168,7 +178,9 @@ export function ConfidenceMeter({ confidence = {}, lang = 'id' }) {
               })
             ) : (
               <div className="text-xs italic py-1" style={{ color: 'var(--vf-text-muted)' }}>
-                {lang === 'id' ? 'Belum ada faktor tambahan.' : 'No additional factors.'}
+                {isUnavailable
+                  ? (lang === 'id' ? 'Faktor keyakinan akan dihitung secara transparan setelah isi sumber berhasil dianalisis.' : 'Confidence factors will be computed transparently after source content is retrieved.')
+                  : (lang === 'id' ? 'Belum ada faktor tambahan.' : 'No additional factors.')}
               </div>
             )}
           </div>

@@ -128,6 +128,16 @@ export default {
         tagline: 'Informasi Tidak Dapat Diuji Buktinya',
         summary: 'Sumber rujukan tidak dapat diakses atau klaim terlalu umum tanpa indikator verifikasi yang memadai.',
       },
+      SOURCE_CONTENT_UNAVAILABLE: {
+        label: 'ARTIKEL TIDAK DAPAT DIBACA',
+        tagline: 'Isi Halaman Belum Berhasil Dibaca',
+        summary: 'Tautan dikenali, namun isi artikel belum berhasil diakses (timeout, proteksi bot, JavaScript, atau server memblokir perayapan). VeriFact ID tidak membuat kesimpulan verifikasi spekulatif tanpa isi artikel.',
+      },
+      NEWS_HOMEPAGE_DETECTED: {
+        label: 'HALAMAN UTAMA MEDIA',
+        tagline: 'Beranda Portal Berita Terdeteksi',
+        summary: 'Tautan yang dimasukkan merupakan halaman beranda situs media, bukan artikel berita spesifik. Masukkan URL artikel berita untuk dianalisis.',
+      },
     },
     reasonCodes: {
       priorFactCheckExists: 'Ditemukan laporan resmi dari lembaga pemeriksa fakta terakreditasi.',
@@ -165,6 +175,7 @@ export default {
       inconclusiveVerdictCap: 'Dibatasi maksimal 45% untuk simpulan yang belum terbukti',
     },
     confidenceBands: {
+      notAvailable: 'Belum Tersedia',
       veryLow: 'Sangat Rendah (Butuh Bukti Tambahan)',
       low: 'Rendah (Verifikasi Terbatas)',
       moderate: 'Cukup / Moderat',

@@ -150,19 +150,26 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      console.log(`[VERIFY] Verification started for client ${clientIp}, input length: ${input.length}`);
       log('info', 'verification_started', { ip: clientIp, inputLength: input.length, claimId: options.claimId });
 
       const result = await runVerification(input, null, options);
+
+      console.log(`[CLAIM] Extracted claim: ${result.claim ? result.claim.mainClaim : 'null (source unavailable)'}`);
+      console.log(`[EVIDENCE] Total evidence sources: ${result.evidence ? result.evidence.length : 0}`);
+      console.log(`[VERDICT] Final verdict: ${result.verdict}, status: ${result.status}, confidence: ${result.confidence ? result.confidence.score + '%' : 'N/A'}`);
 
       log('info', 'verification_completed', {
         ip: clientIp,
         verificationId: result.verificationId,
         verdict: result.verdict,
+        status: result.status,
       });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
+      console.error(`[VERIFY] Error processing verification: ${err.message}`);
       log('error', 'verification_failed', { ip: clientIp, error: err.message });
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: false, error: err.message || 'Invalid request' }));

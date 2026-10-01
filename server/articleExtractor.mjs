@@ -247,6 +247,34 @@ function extractParagraphsFromFragment(fragmentHtml) {
 // DEDICATED ADAPTERS FOR INDONESIAN NEWS SITES
 // ============================================================================
 
+/**
+ * Extract balanced inner content for container tags with nested elements (nested divs, ads, figures)
+ */
+export function extractBalancedFragment(html, startRegex) {
+  const match = startRegex.exec(html);
+  if (!match) return null;
+  const startIdx = match.index + match[0].length;
+
+  const openTagMatch = match[0].match(/^<([a-z0-9]+)/i);
+  const rootTag = openTagMatch ? openTagMatch[1].toLowerCase() : 'div';
+
+  let depth = 1;
+  const tagScanner = new RegExp(`<\/${rootTag}[^>]*>|<${rootTag}\\b[^>]*>`, 'gi');
+  tagScanner.lastIndex = startIdx;
+  let m;
+  while ((m = tagScanner.exec(html)) !== null) {
+    if (m[0].startsWith('</')) {
+      depth--;
+      if (depth === 0) {
+        return html.slice(startIdx, m.index);
+      }
+    } else if (!m[0].endsWith('/>')) {
+      depth++;
+    }
+  }
+  return html.slice(startIdx, startIdx + 30000);
+}
+
 export const DetikAdapter = {
   name: 'DetikAdapter',
   matches(hostname) {
@@ -254,14 +282,14 @@ export const DetikAdapter = {
   },
   extract(html) {
     const cleaned = cleanHtmlNoise(html);
-    // Detik uses .detail__body-text, div.itp_bodycontent, .detail__body
-    const match =
-      cleaned.match(/<div[^>]*class=["'][^"']*(?:detail__body-text|itp_bodycontent|detail__body)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
-      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    // Detik uses .detail__body-text, div.itp_bodycontent, .detail__body, or article
+    const detikRegex = /<div[^>]*class=["'][^"']*(?:detail__body-text|itp_bodycontent|detail__body|read__content)[^"']*["'][^>]*>/i;
+    const articleRegex = /<article[^>]*>/i;
 
-    if (match) {
-      const text = extractParagraphsFromFragment(match[1]);
-      if (text && text.length > 80) return text;
+    const fragment = extractBalancedFragment(cleaned, detikRegex) || extractBalancedFragment(cleaned, articleRegex);
+    if (fragment) {
+      const text = extractParagraphsFromFragment(fragment);
+      if (text && text.length > 50) return text;
     }
     return null;
   },
@@ -275,13 +303,13 @@ export const KompasAdapter = {
   extract(html) {
     const cleaned = cleanHtmlNoise(html);
     // Kompas uses .read__content, .read__body, .col-bs10-7
-    const match =
-      cleaned.match(/<div[^>]*class=["'][^"']*(?:read__content|read__body)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
-      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    const kompasRegex = /<div[^>]*class=["'][^"']*(?:read__content|read__body|col-bs10-7)[^"']*["'][^>]*>/i;
+    const articleRegex = /<article[^>]*>/i;
 
-    if (match) {
-      const text = extractParagraphsFromFragment(match[1]);
-      if (text && text.length > 80) return text;
+    const fragment = extractBalancedFragment(cleaned, kompasRegex) || extractBalancedFragment(cleaned, articleRegex);
+    if (fragment) {
+      const text = extractParagraphsFromFragment(fragment);
+      if (text && text.length > 50) return text;
     }
     return null;
   },
@@ -294,13 +322,13 @@ export const TempoAdapter = {
   },
   extract(html) {
     const cleaned = cleanHtmlNoise(html);
-    const match =
-      cleaned.match(/<div[^>]*class=["'][^"']*(?:detail-in|art-text)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
-      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    const tempoRegex = /<div[^>]*class=["'][^"']*(?:detail-in|art-text)[^"']*["'][^>]*>/i;
+    const articleRegex = /<article[^>]*>/i;
 
-    if (match) {
-      const text = extractParagraphsFromFragment(match[1]);
-      if (text && text.length > 80) return text;
+    const fragment = extractBalancedFragment(cleaned, tempoRegex) || extractBalancedFragment(cleaned, articleRegex);
+    if (fragment) {
+      const text = extractParagraphsFromFragment(fragment);
+      if (text && text.length > 50) return text;
     }
     return null;
   },
@@ -313,13 +341,13 @@ export const CNNIndonesiaAdapter = {
   },
   extract(html) {
     const cleaned = cleanHtmlNoise(html);
-    const match =
-      cleaned.match(/<div[^>]*class=["'][^"']*(?:detail-text|content-detail)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
-      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    const cnnRegex = /<div[^>]*class=["'][^"']*(?:detail-text|content-detail)[^"']*["'][^>]*>/i;
+    const articleRegex = /<article[^>]*>/i;
 
-    if (match) {
-      const text = extractParagraphsFromFragment(match[1]);
-      if (text && text.length > 80) return text;
+    const fragment = extractBalancedFragment(cleaned, cnnRegex) || extractBalancedFragment(cleaned, articleRegex);
+    if (fragment) {
+      const text = extractParagraphsFromFragment(fragment);
+      if (text && text.length > 50) return text;
     }
     return null;
   },
@@ -332,13 +360,13 @@ export const TribunAdapter = {
   },
   extract(html) {
     const cleaned = cleanHtmlNoise(html);
-    const match =
-      cleaned.match(/<div[^>]*class=["'][^"']*(?:txt-article|side-article)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
-      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    const tribunRegex = /<div[^>]*class=["'][^"']*(?:txt-article|side-article)[^"']*["'][^>]*>/i;
+    const articleRegex = /<article[^>]*>/i;
 
-    if (match) {
-      const text = extractParagraphsFromFragment(match[1]);
-      if (text && text.length > 80) return text;
+    const fragment = extractBalancedFragment(cleaned, tribunRegex) || extractBalancedFragment(cleaned, articleRegex);
+    if (fragment) {
+      const text = extractParagraphsFromFragment(fragment);
+      if (text && text.length > 50) return text;
     }
     return null;
   },
@@ -351,13 +379,13 @@ export const Liputan6Adapter = {
   },
   extract(html) {
     const cleaned = cleanHtmlNoise(html);
-    const match =
-      cleaned.match(/<div[^>]*class=["'][^"']*(?:article-content-body|article-body)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
-      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    const liputanRegex = /<div[^>]*class=["'][^"']*(?:article-content-body|article-body)[^"']*["'][^>]*>/i;
+    const articleRegex = /<article[^>]*>/i;
 
-    if (match) {
-      const text = extractParagraphsFromFragment(match[1]);
-      if (text && text.length > 80) return text;
+    const fragment = extractBalancedFragment(cleaned, liputanRegex) || extractBalancedFragment(cleaned, articleRegex);
+    if (fragment) {
+      const text = extractParagraphsFromFragment(fragment);
+      if (text && text.length > 50) return text;
     }
     return null;
   },
@@ -370,13 +398,13 @@ export const AntaraAdapter = {
   },
   extract(html) {
     const cleaned = cleanHtmlNoise(html);
-    const match =
-      cleaned.match(/<div[^>]*class=["'][^"']*(?:post-content|article-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i) ||
-      cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+    const antaraRegex = /<div[^>]*class=["'][^"']*(?:post-content|article-content)[^"']*["'][^>]*>/i;
+    const articleRegex = /<article[^>]*>/i;
 
-    if (match) {
-      const text = extractParagraphsFromFragment(match[1]);
-      if (text && text.length > 80) return text;
+    const fragment = extractBalancedFragment(cleaned, antaraRegex) || extractBalancedFragment(cleaned, articleRegex);
+    if (fragment) {
+      const text = extractParagraphsFromFragment(fragment);
+      if (text && text.length > 50) return text;
     }
     return null;
   },
@@ -391,29 +419,32 @@ export const GenericArticleAdapter = {
     const cleaned = cleanHtmlNoise(html);
 
     // Strategy 3: <article> tag
-    const articleMatch = cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
-    if (articleMatch) {
-      const text = extractParagraphsFromFragment(articleMatch[1]);
-      if (text && text.length > 80) return text;
+    const articleFrag = extractBalancedFragment(cleaned, /<article[^>]*>/i);
+    if (articleFrag) {
+      const text = extractParagraphsFromFragment(articleFrag);
+      if (text && text.length > 60) return text;
     }
 
     // Strategy 4: <main> tag
-    const mainMatch = cleaned.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
-    if (mainMatch) {
-      const text = extractParagraphsFromFragment(mainMatch[1]);
-      if (text && text.length > 80) return text;
+    const mainFrag = extractBalancedFragment(cleaned, /<main[^>]*>/i);
+    if (mainFrag) {
+      const text = extractParagraphsFromFragment(mainFrag);
+      if (text && text.length > 60) return text;
     }
 
     // Strategy 5: known body selector patterns
-    const bodyClassMatch = cleaned.match(/<div[^>]*?(?:class|id)=["'][^"']*(?:article-body|entry-content|post-content|story-body|detail-text|content__article|main-content)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
-    if (bodyClassMatch) {
-      const text = extractParagraphsFromFragment(bodyClassMatch[1]);
-      if (text && text.length > 80) return text;
+    const bodyClassFrag = extractBalancedFragment(
+      cleaned,
+      /<div[^>]*?(?:class|id)=["'][^"']*(?:article-body|entry-content|post-content|story-body|detail-text|content__article|main-content)[^"']*["'][^>]*>/i
+    );
+    if (bodyClassFrag) {
+      const text = extractParagraphsFromFragment(bodyClassFrag);
+      if (text && text.length > 60) return text;
     }
 
     // Strategy 6: generic paragraph extraction across whole cleaned body
     const genericText = extractParagraphsFromFragment(cleaned);
-    if (genericText && genericText.length > 80) return genericText;
+    if (genericText && genericText.length > 60) return genericText;
 
     // Strategy 7: Readability-style fallback (plain text extraction)
     const stripped = decodeHtmlEntities(cleaned.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
@@ -550,12 +581,21 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
     const timeout = setTimeout(() => controller.abort(), 8000);
 
     try {
+      console.log(`[ARTICLE] Fetching ${currentUrl} (hop: ${hop})`);
       const response = await fetch(currentUrl, {
         method: 'GET',
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 VeriFact-Bot/4.2',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.5',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
           'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Sec-Ch-Ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+          'Sec-Ch-Ua-Mobile': '?0',
+          'Sec-Ch-Ua-Platform': '"Windows"',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1',
         },
         redirect: 'manual', // handle redirects explicitly for SSRF checks
         signal: controller.signal,
@@ -567,10 +607,14 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get('location');
         if (!location) {
+          console.warn(`[ARTICLE] Empty redirect location from ${currentUrl}`);
           return {
             ok: false,
             status: 'SOURCE_CONTENT_UNAVAILABLE',
             reason: 'empty_redirect_location',
+            claim: null,
+            confidence: null,
+            evidence: [],
             source: { url: currentUrl },
           };
         }
@@ -579,30 +623,42 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
       }
 
       if (!response.ok) {
+        console.warn(`[ARTICLE] HTTP error ${response.status} from ${currentUrl}`);
         return {
           ok: false,
           status: 'SOURCE_CONTENT_UNAVAILABLE',
           reason: `http_status_${response.status}`,
+          claim: null,
+          confidence: null,
+          evidence: [],
           source: { url: currentUrl, domain: parsed.hostname },
         };
       }
 
       const contentType = response.headers.get('content-type') || '';
       if (!contentType.includes('text/html') && !contentType.includes('text/plain') && !contentType.includes('application/xhtml')) {
+        console.warn(`[ARTICLE] Unsupported content type: ${contentType}`);
         return {
           ok: false,
           status: 'SOURCE_CONTENT_UNAVAILABLE',
           reason: 'unsupported_content_type',
+          claim: null,
+          confidence: null,
+          evidence: [],
           source: { url: currentUrl, domain: parsed.hostname, contentType },
         };
       }
 
       const html = await response.text();
       if (!html || html.length < 100) {
+        console.warn(`[ARTICLE] Empty HTML response from ${currentUrl}`);
         return {
           ok: false,
           status: 'SOURCE_CONTENT_UNAVAILABLE',
           reason: 'empty_body',
+          claim: null,
+          confidence: null,
+          evidence: [],
           source: { url: currentUrl, domain: parsed.hostname },
         };
       }
@@ -624,11 +680,15 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
       const words = mainText ? mainText.split(/\s+/).filter(Boolean) : [];
 
       if (!mainText || words.length < 15) {
+        console.warn(`[EXTRACT] Insufficient body text from ${currentUrl} (words: ${words.length})`);
         return {
           ok: false,
           status: 'SOURCE_CONTENT_UNAVAILABLE',
           reason: 'article_body_extraction_insufficient',
           message: 'Artikel terdeteksi tetapi isi halaman tidak berhasil dibaca. Alasan: Bot protection / JavaScript rendering / timeout / extraction failed. Silakan tempel teks artikel secara langsung.',
+          claim: null,
+          confidence: null,
+          evidence: [],
           source: {
             url: currentUrl,
             canonicalUrl,
@@ -638,6 +698,8 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
           },
         };
       }
+
+      console.log(`[EXTRACT] Successfully extracted ${words.length} words using ${extraction.strategy} from ${currentUrl}`);
 
       return {
         ok: true,
@@ -666,11 +728,15 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
       };
     } catch (err) {
       clearTimeout(timeout);
+      console.warn(`[ARTICLE] Failed fetching ${currentUrl}: ${err.name === 'AbortError' ? 'timeout' : err.message}`);
       return {
         ok: false,
         status: 'SOURCE_CONTENT_UNAVAILABLE',
         reason: err.name === 'AbortError' ? 'timeout' : (err.message || 'fetch_error'),
         message: 'Gagal mengambil konten artikel dari sumber terkait.',
+        claim: null,
+        confidence: null,
+        evidence: [],
         source: { url: currentUrl, domain: parsed.hostname },
       };
     }
@@ -680,6 +746,9 @@ export async function fetchAndExtractArticleBackend(targetUrl) {
     ok: false,
     status: 'SOURCE_CONTENT_UNAVAILABLE',
     reason: 'too_many_redirects',
+    claim: null,
+    confidence: null,
+    evidence: [],
     source: { url: targetUrl },
   };
 }

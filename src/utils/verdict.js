@@ -24,6 +24,8 @@ export const VERDICT = {
   HOAX: 'HOAX',
   UNPROVEN: 'UNPROVEN',
   UNVERIFIABLE: 'UNVERIFIABLE',
+  SOURCE_CONTENT_UNAVAILABLE: 'SOURCE_CONTENT_UNAVAILABLE',
+  NEWS_HOMEPAGE_DETECTED: 'NEWS_HOMEPAGE_DETECTED',
 };
 
 /** Urutan tampilan pada filter dan legenda. */
@@ -49,6 +51,8 @@ export const VERDICT_TONE = {
   [VERDICT.HOAX]: 'hoax',
   [VERDICT.UNPROVEN]: 'unproven',
   [VERDICT.UNVERIFIABLE]: 'unproven',
+  [VERDICT.SOURCE_CONTENT_UNAVAILABLE]: 'unproven',
+  [VERDICT.NEWS_HOMEPAGE_DETECTED]: 'unproven',
 };
 
 /** Status yang menandakan mesin tidak menyimpulkan benar/salah. */
