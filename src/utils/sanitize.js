@@ -56,3 +56,37 @@ export function truncateWords(input, maxChars) {
   const lastSpace = cut.lastIndexOf(' ');
   return `${(lastSpace > maxChars * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
 }
+
+/**
+ * Mask sensitive user data (§30): OTP, PIN, Passwords, API Keys, Credit Cards, and Phone Numbers.
+ * Contoh:
+ *   081234567890 -> 0812****7890
+ *   OTP: 123456  -> OTP: ******
+ *   API KEY: ... -> API KEY: ********
+ */
+export function maskSensitiveData(input) {
+  if (!input) return '';
+  let text = String(input);
+
+  // 1. Mask Indonesian Phone Numbers: 081234567890 -> 0812****7890, +6281234567890 -> +62812****7890
+  text = text.replace(/(\b08\d{2})[- ]?(\d{4})[- ]?(\d{3,4}\b)/g, '$1****$3');
+  text = text.replace(/(\b\+?628\d{2})[- ]?(\d{4})[- ]?(\d{3,4}\b)/g, '$1****$3');
+
+  // 2. Mask Credit Card / 16-digit PAN
+  text = text.replace(/\b(?:\d{4}[ -]?){3}(\d{4})\b/g, '****-****-****-$1');
+
+  // 3. Mask OTP: "otp is 123456", "kode otp: 123456"
+  text = text.replace(/((?:kode\s+)?otp(?:\s*(?:adalah|anda|rahasia)?[:=\s]+))(\d{4,8})/gi, '$1******');
+
+  // 4. Mask PIN: "pin: 123456", "pin atm: 654321"
+  text = text.replace(/((?:kode\s+)?pin(?:\s*(?:atm|anda|kartu)?[:=\s]+))(\d{4,8})/gi, '$1******');
+
+  // 5. Mask Password: "password: secret123", "kata sandi: secret"
+  text = text.replace(/((?:password|kata\s+sandi)(?:\s*(?:anda)?[:=\s]+))([^\s]{4,})/gi, '$1******');
+
+  // 6. Mask API Key / Secret Key / Token
+  text = text.replace(/((?:api[_\s-]?key|secret[_\s-]?key|bearer[_\s-]?token|access[_\s-]?token)(?:\s*[:=\s]+))([a-zA-Z0-9_\-\.]{8,})/gi, '$1********');
+
+  return text;
+}
+

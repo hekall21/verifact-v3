@@ -42,7 +42,16 @@ export function identifyBankStructure(cleaned) {
 }
 
 export function analyzeAccountNumber(raw, options = {}) {
-  const clean = String(raw || '').replace(/[\s.-]+/g, '');
+  let explicitBank = options.bank || null;
+  let rawStr = String(raw || '').trim();
+
+  const matchWithBank = rawStr.match(/^(?:no\.?\s*rek(?:ening)?\s+)?(bca|bri|bni|mandiri|cimb|danamon|permata|bsi|btpn|jago|jenius|seabank|dana|ovo|gopay|shopeepay)\s*[:#-]?\s*(\d{8,18})$/i);
+  if (matchWithBank) {
+    explicitBank = matchWithBank[1].toUpperCase();
+    rawStr = matchWithBank[2];
+  }
+
+  const clean = rawStr.replace(/[\s.-]+/g, '');
 
   // 1. Validasi Format
   if (!clean || !/^\d+$/.test(clean) || clean.length < 8 || clean.length > 18) {
@@ -108,7 +117,7 @@ export function analyzeAccountNumber(raw, options = {}) {
     };
   }
 
-  const bank = identifyBankStructure(clean);
+  const bank = explicitBank || identifyBankStructure(clean);
   const observations = [
     `Format nomor rekening valid (${clean.length} digit)`,
     `Struktur institusi terindikasi: ${bank}`,

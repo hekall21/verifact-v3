@@ -177,30 +177,121 @@ export function analyzeMessageThreat(rawText = '', options = {}) {
     });
   }
 
-  // Klasifikasi Status Akhir
+  // 9. Jual Beli Akun Game / Media Sosial (Account Sale §17)
+  const isAccountSale = ['jual akun', 'beli akun', 'akun ml', 'mobile legends', 'akun ff', 'free fire', 'transfer dulu', 'jual murah akun', 'take all akun', 'jual char'].some((kw) => textLower.includes(kw));
+  if (isAccountSale) {
+    score += 35;
+    indicators.push({
+      category: 'account_sale',
+      title: 'Tawaran Jual Beli Akun Game / Media Sosial Tidak Resmi',
+      detail: 'Transaksi dilakukan di luar jalur resmi penerbit game/platform tanpa mekanisme perlindungan pembeli (escrow resmi). Berisiko tinggi akun hasil curian (phishing/hack) atau penipuan transfer sepihak.',
+    });
+  }
+
+  // 10. Tawaran Investasi Bodong / Titip Dana
+  const isInvestmentScam = ['titip dana', 'investasi slot', 'profit harian', 'trading kilat', 'keuntungan pasti', 'garansi modal'].some((kw) => textLower.includes(kw));
+  if (isInvestmentScam) {
+    score += 45;
+    indicators.push({
+      category: 'investment_scam',
+      title: 'Tawaran Investasi Tidak Wajar / Skema Ponzi',
+      detail: 'Pesan menjanjikan keuntungan pasti tanpa risiko atau titip dana kelolaan tanpa izin Otoritas Jasa Keuangan (OJK).',
+    });
+  }
+
+  // 11. Lowongan Kerja Komisi / Tugas Like & Follow
+  const isJobScam = ['lowongan kerja', 'loker', 'tugas like', 'follow instagram dapat', 'komisi harian', 'paruh waktu online'].some((kw) => textLower.includes(kw));
+  if (isJobScam) {
+    score += 45;
+    indicators.push({
+      category: 'fake_job',
+      title: 'Modus Lowongan Kerja Berbayar / Tugas Komisi Palsu',
+      detail: 'Pekerjaan sampingan online yang meminta deposit saldo atau menyelesaikan misi like/follow media sosial dengan iming-iming komisi fiktif.',
+    });
+  }
+
+  // 12. Permintaan Deposit / Top Up Dana Awal
+  if (textLower.includes('deposit') || textLower.includes('depo minimal') || textLower.includes('saldo aktivasi')) {
+    score += 30;
+    indicators.push({
+      category: 'deposit_request',
+      title: 'Instruksi Setoran Saldo / Deposit Modal Awal',
+      detail: 'Pelaku mewajibkan calon korban mentransfer dana talangan atau deposit modal terlebih dahulu.',
+    });
+  }
+
+  // Klasifikasi Status Akhir & Risk Level (§18)
   let status = 'AMAN TERINDIKASI RENDAH';
   let statusCode = 'LOW';
   let riskLevel = 'LOW';
+  let riskLevel5 = 'LOW RISK';
 
   if (score >= 65 || matchedOtp.length > 0 || hasApk) {
     status = 'BERISIKO TINGGI';
     statusCode = 'HIGH';
     riskLevel = 'CRITICAL';
-  } else if (score >= 35 || indicators.length >= 2) {
+    riskLevel5 = 'CRITICAL RISK';
+  } else if (score >= 40 || isAccountSale || isInvestmentScam || isJobScam || indicators.length >= 2) {
+    status = 'BERISIKO TINGGI';
+    statusCode = 'HIGH';
+    riskLevel = 'HIGH';
+    riskLevel5 = 'HIGH RISK';
+  } else if (score >= 25 || indicators.length === 1) {
     status = 'PERLU WASPADA';
     statusCode = 'MEDIUM';
     riskLevel = 'MEDIUM';
-  } else if (score >= 20 || indicators.length === 1) {
-    status = 'MENCURIGAKAN';
-    statusCode = 'MEDIUM_HIGH';
-    riskLevel = 'MODERATE';
+    riskLevel5 = 'MEDIUM RISK';
   }
 
+  // Ringkasan Apa yang Ditawarkan (§17 & §29)
+  let whatIsOffered = 'Pesan memuat teks percakapan biasa.';
+  if (isAccountSale) {
+    whatIsOffered = 'Pesan menawarkan penjualan akun game atau media sosial dengan harga miring dan meminta transfer uang langsung.';
+  } else if (isInvestmentScam) {
+    whatIsOffered = 'Pesan menawarkan skema titip dana atau investasi instan dengan janji keuntungan finansial cepat.';
+  } else if (isJobScam) {
+    whatIsOffered = 'Pesan menawarkan lowongan pekerjaan paruh waktu online dengan imbalan komisi harian.';
+  } else if (matchedRewards.length > 0) {
+    whatIsOffered = 'Pesan mengklaim penerima memenangkan hadiah uang tunai, undian, atau saldo gratis.';
+  } else if (matchedThreats.length > 0) {
+    whatIsOffered = 'Pesan menyampaikan peringatan pemblokiran akun/layanan dan mendesak verifikasi segera.';
+  }
+
+  // Mengapa Berisiko (§17 & §29)
+  let whyRisky = indicators.length > 0
+    ? `Ditemukan ${indicators.length} indikator rekayasa sosial: ${indicators.map((i) => i.title).join('; ')}. Pelaku memanipulasi psikologi korban melalui ${indicators.map((i) => i.category).join(', ')} untuk mendapatkan uang atau akses akun pribadi.`
+    : 'Pesan belum menunjukkan pola manipulasi siber yang mencurigakan.';
+
+  if (isJobScam) {
+    whyRisky += ' Modus lowongan kerja dengan deposit dana modal awal merupakan skema penipuan terstruktur di mana dana yang disetor tidak akan pernah dikembalikan.';
+  } else if (isInvestmentScam) {
+    whyRisky += ' Modus titip dana trading forex dengan janji pasti untung tanpa risiko bertentangan dengan prinsip investasi legal OJK dan berkarakteristik skema Ponzi ilegal.';
+  }
+
+  // Yang Perlu Diperiksa (§17)
+  const thingsToVerify = [
+    'Identitas asli pihak pengirim / penjual melalui kanal resmi',
+    'Bukti kepemilikan sah barang atau akun yang ditawarkan',
+    'Riwayat transaksi dan reputasi penjual di platform resmi',
+    'Metode pembayaran (hindari transfer langsung ke rekening pribadi tanpa jaminan rekber)',
+    'Kemungkinan akun hasil curian (phishing/sniffing) atau akun ilegal',
+    'Ketentuan dan aturan resmi penyedia layanan / platform terkait',
+  ];
+
+  // Rekomendasi Tindakan (§17 & §29)
+  const recommendedActions = [
+    'JANGAN mentransfer uang secara sepihak ke rekening pribadi yang belum diverifikasi.',
+    'JANGAN pernah membagikan kode OTP, PIN perbankan, atau kata sandi akun kepada siapapun.',
+    'JANGAN membuka tautan mencurigakan atau mengunduh berkas biner/APK dari obrolan pribadi.',
+    'Gunakan mekanisme transaksi resmi yang menyediakan perlindungan pembeli (Escrow/Rekber Terpercaya).',
+    'Hubungi pusat bantuan resmi instansi atau platform yang bersangkutan untuk konfirmasi.',
+  ];
+
   const sourcesChecked = [
-    { name: 'Social Engineering Pattern Detector', status: 'LIVE_CHECKED' },
-    { name: 'Malware & APK Sniffing Signatures', status: 'LIVE_CHECKED' },
-    { name: 'Banking Impersonation Heuristics', status: 'LIVE_CHECKED' },
-    { name: 'National Anti-Scam Heuristic Feed', status: 'MANUAL_REFERENCE', url: 'https://iasc.ojk.go.id' },
+    { name: 'Social Engineering Pattern Detector', status: 'ACTIVE_HEURISTIC_ENGINE' },
+    { name: 'Malware & APK Sniffing Signatures', status: 'ACTIVE_HEURISTIC_ENGINE' },
+    { name: 'Banking Impersonation Heuristics', status: 'ACTIVE_HEURISTIC_ENGINE' },
+    { name: 'National Anti-Scam Reference Framework', status: 'MANUAL_REFERENCE', url: 'https://iasc.ojk.go.id' },
   ];
 
   return {
@@ -210,12 +301,17 @@ export function analyzeMessageThreat(rawText = '', options = {}) {
     statusCode,
     riskScore: Math.min(100, Math.max(5, score)),
     riskLevel,
+    riskLevel5,
     indicators,
+    whatIsOffered,
+    whyRisky,
+    thingsToVerify,
+    recommendedActions,
     sourcesChecked,
     warningMessage:
-      statusCode === 'HIGH'
+      riskLevel === 'CRITICAL' || riskLevel === 'HIGH'
         ? 'PERINGATAN TINGGI: Pesan ini mengandung banyak karakteristik manipulasi psikologis penipuan siber. JANGAN klik tautan, JANGAN kirim OTP, dan JANGAN mentransfer dana apapun.'
-        : statusCode === 'MEDIUM' || statusCode === 'MEDIUM_HIGH'
+        : riskLevel === 'MEDIUM'
         ? 'WASPADA: Terdeteksi pola yang lazim digunakan pada pesan spam atau pengelabuan awal. Lakukan konfirmasi langsung ke nomor resmi institusi terkait.'
         : 'Tidak terdeteksi indikator rekayasa sosial berat pada teks pesan ini. Tetap berhati-hati terhadap permintaan data rahasia.',
     disclaimer: 'Pemeriksaan ini menganalisis pola redaksional, manipulasi psikologis, dan indikator keamanan teks. Selalu lakukan verifikasi sekunder.',

@@ -116,6 +116,24 @@ export const OFFICIAL_CHANNELS = [
     topics: ['government', 'report'],
     descKey: 'lapor',
   },
+  {
+    id: 'setneg',
+    domain: 'setneg.go.id',
+    url: 'https://www.setneg.go.id',
+    publisherKey: 'kemensetneg',
+    tier: SOURCE_TIER.PRIMARY,
+    topics: ['presiden', 'presidential', 'libur', 'cuti', 'pemerintah', 'government', 'kebijakan', 'jokowi', 'prabowo'],
+    descKey: 'setneg',
+  },
+  {
+    id: 'kemenpanrb',
+    domain: 'menpan.go.id',
+    url: 'https://www.menpan.go.id',
+    publisherKey: 'kemenpanrb',
+    tier: SOURCE_TIER.PRIMARY,
+    topics: ['libur', 'cuti', 'asn', 'pns', 'instansi', 'pemerintah'],
+    descKey: 'kemenpanrb',
+  },
 ];
 
 /** Organisasi pemeriksa fakta (Tier 3). */

@@ -36,6 +36,31 @@ export const INPUT_TYPE = {
   UNKNOWN: 'UNKNOWN',
 };
 
+/**
+ * VeriFact ID 5.0 Semantic Sub-types (§2)
+ */
+export const INPUT_SUBTYPE = {
+  URL_HOME: 'URL_HOME',
+  URL_ARTICLE: 'URL_ARTICLE',
+  URL_SOCIAL: 'URL_SOCIAL',
+  URL_PHISHING_SUSPECT: 'URL_PHISHING_SUSPECT',
+  PHONE_NUMBER: 'PHONE_NUMBER',
+  BANK_ACCOUNT: 'BANK_ACCOUNT',
+  INVALID_URL: 'INVALID_URL',
+  SOCIAL_POST: 'SOCIAL_POST',
+  CHAT_MESSAGE: 'CHAT_MESSAGE',
+  SCAM_MESSAGE: 'SCAM_MESSAGE',
+  PHISHING_MESSAGE: 'PHISHING_MESSAGE',
+  NEWS_CLAIM: 'NEWS_CLAIM',
+  PRODUCT_OFFER: 'PRODUCT_OFFER',
+  JOB_OFFER: 'JOB_OFFER',
+  INVESTMENT_OFFER: 'INVESTMENT_OFFER',
+  ACCOUNT_SALE: 'ACCOUNT_SALE',
+  MARKETPLACE_MESSAGE: 'MARKETPLACE_MESSAGE',
+  CLAIM_TEXT: 'CLAIM_TEXT',
+  UNKNOWN: 'UNKNOWN',
+};
+
 const SOCIAL_HOSTS = [
   'instagram.com',
   'facebook.com',
@@ -61,6 +86,7 @@ const PHISHING_KEYWORDS = [
   'login', 'masuk', 'verifikasi', 'otp', 'password', 'pin', 'bca', 'bri', 'brimo',
   'mandiri', 'livin', 'bni', 'dana', 'ovo', 'gopay', 'bansos', 'kemensos', 'blt',
   'kominfo', 'komdigi', 'pajak', 'djp', 'bpjs', 'kuota-gratis', 'saldo-gratis',
+  'palsu', 'fake', 'phish', 'scam', 'klaim', 'hadiah', 'undian',
 ];
 
 const SOCIAL_ENGINEERING_TRIGGERS = [
@@ -70,6 +96,47 @@ const SOCIAL_ENGINEERING_TRIGGERS = [
   'biaya administrasi', 'biaya ongkir', 'uang jaminan', 'transfer ke rekening',
   'unduh aplikasi', 'surat undangan.apk', 'paket.apk', 'resi.apk', 'surat tilang.apk',
   'segera konfirmasi', 'dalam 24 jam', '1x24 jam', 'batas waktu', 'sebelum terlambat',
+  'transfer sekarang', 'lagi butuh',
+];
+
+const ACCOUNT_SALE_TRIGGERS = [
+  'jual akun', 'beli akun', 'akun ml', 'mobile legends', 'akun ff', 'free fire',
+  'transfer dulu', 'jual murah', 'akun pubg', 'akun genshin', 'akun ig',
+  'take all akun', 'rekber pulsa', 'jual char', 'akun pes', 'akun efootball',
+];
+
+const INVESTMENT_TRIGGERS = [
+  'titip dana', 'investasi slot', 'profit harian', 'trading kilat', 'keuntungan pasti',
+  'investasi crypto', 'garansi modal', 'bagi hasil', 'investasi amanah', 'robot trading',
+  'depo minimal', 'profit 50%', 'profit 100%',
+];
+
+const JOB_OFFER_TRIGGERS = [
+  'lowongan kerja', 'loker', 'tugas like', 'follow instagram dapat', 'follow ig dapat',
+  'paruh waktu online', 'gaji harian jutaan', 'part time online', 'komisi like',
+  'pekerjaan sampingan online', 'tugas subscribe',
+];
+
+const PRODUCT_OFFER_TRIGGERS = [
+  'cuci gudang iphone', 'promo iphone', 'harga miring transfer', 'lelang sitaan',
+  'barang sitaan bea cukai', 'flash sale transfer', 'diskon cuci gudang',
+];
+
+const MARKETPLACE_TRIGGERS = [
+  'transaksi luar tokopedia', 'transaksi luar shopee', 'transaksi di luar aplikasi',
+  'chat wa aja', 'japri wa', 'direct transfer', 'transaksi via wa',
+];
+
+const NEWS_CLAIM_TRIGGERS = [
+  'presiden', 'menteri', 'pemerintah', 'dpr', 'kpk', 'menkes', 'kebijakan',
+  'mengumumkan', 'resmi menyatakan', 'terjadi ledakan', 'gempa bumi',
+  'meninggal dunia', 'operasi tangkap tangan', 'ott', 'vaksin', 'bansos cair',
+  'anggaran', 'resmi meluncurkan', 'peristiwa', 'kapolri', 'kejaksaan',
+];
+
+const CHAT_MESSAGE_TRIGGERS = [
+  'halo', 'hai', 'besok kita', 'nanti sore', 'apa kabar', 'kerja kelompok',
+  'jam berapa', 'tugas kuliahan', 'lagi dimana', 'udah makan', 'ketemuan',
 ];
 
 /**
@@ -133,6 +200,7 @@ export function classifyInputDetail(rawInput = '') {
   if (!text) {
     return {
       inputType: INPUT_TYPE.UNKNOWN,
+      subType: INPUT_SUBTYPE.UNKNOWN,
       raw: text,
       reason: 'empty',
       label: 'Masukan Kosong',
@@ -156,6 +224,7 @@ export function classifyInputDetail(rawInput = '') {
     if (isIndonesianMobile || isIndonesianPstn) {
       return {
         inputType: INPUT_TYPE.PHONE_NUMBER,
+        subType: INPUT_SUBTYPE.PHONE_NUMBER,
         raw: text,
         normalized: cleanPhoneCandidate.startsWith('62') ? `0${cleanPhoneCandidate.slice(2)}` : cleanPhoneCandidate,
         label: 'Nomor Telepon / Kontak Seluler',
@@ -164,11 +233,25 @@ export function classifyInputDetail(rawInput = '') {
   }
 
   // 2. CEK NOMOR REKENING BANK
-  // Ciri: Pure angka 8 s.d. 18 digit, TIDAK diawali 08 (agar tidak bentrok dengan no HP)
+  // Ciri A: Format teks dengan nama bank, e.g. "BCA 1234567890", "rekening BRI 123456789012"
+  const bankPrefixMatch = text.match(/^(?:no\.?\s*rek(?:ening)?\s+)?(bca|bri|bni|mandiri|cimb|danamon|permata|bsi|btpn|jago|jenius|seabank|dana|ovo|gopay|shopeepay)\s*[:#-]?\s*(\d{8,18})$/i);
+  if (bankPrefixMatch) {
+    return {
+      inputType: INPUT_TYPE.BANK_ACCOUNT,
+      subType: INPUT_SUBTYPE.BANK_ACCOUNT,
+      raw: text,
+      accountNumber: bankPrefixMatch[2],
+      bank: bankPrefixMatch[1].toUpperCase(),
+      label: `Nomor Rekening Bank ${bankPrefixMatch[1].toUpperCase()}`,
+    };
+  }
+
+  // Ciri B: Pure angka 8 s.d. 18 digit, TIDAK diawali 08 (agar tidak bentrok dengan no HP)
   if (isAllDigitsCandidate && cleanPhoneCandidate.length >= 8 && cleanPhoneCandidate.length <= 18) {
     if (!cleanPhoneCandidate.startsWith('08') && !cleanPhoneCandidate.startsWith('628')) {
       return {
         inputType: INPUT_TYPE.BANK_ACCOUNT,
+        subType: INPUT_SUBTYPE.BANK_ACCOUNT,
         raw: text,
         accountNumber: cleanPhoneCandidate,
         label: 'Nomor Rekening Bank / Finansial',
@@ -191,6 +274,7 @@ export function classifyInputDetail(rawInput = '') {
     if (isSocial) {
       return {
         inputType: INPUT_TYPE.URL_SOCIAL,
+        subType: INPUT_SUBTYPE.SOCIAL_POST,
         raw: text,
         url: url.href,
         hostname,
@@ -204,12 +288,14 @@ export function classifyInputDetail(rawInput = '') {
     const hasApkDownload = /\.apk($|\?)/i.test(pathname);
     const isLowTrustTld = SUSPICIOUS_TLDS.some((tld) => hostname.endsWith(tld));
     const hasPhishKeyword = PHISHING_KEYWORDS.some((kw) => hostname.includes(kw) || pathname.includes(kw));
-    const isSuspiciousImpersonation = isLowTrustTld && hasPhishKeyword;
+    const hasExplicitFakeFlag = hostname.includes('palsu') || hostname.includes('fake') || hostname.includes('scam') || hostname.startsWith('login-') || hostname.includes('-login');
+    const isSuspiciousImpersonation = (isLowTrustTld && hasPhishKeyword) || hasExplicitFakeFlag;
     const isSimulatedPhish = hostname.endsWith('.invalid') && (hasPhishKeyword || hasApkDownload || pathname.includes('verify') || pathname.includes('auth') || pathname.includes('login'));
 
     if (isIpHost || hasApkDownload || isSuspiciousImpersonation || isSimulatedPhish) {
       return {
         inputType: INPUT_TYPE.URL_PHISHING_SUSPECT,
+        subType: INPUT_SUBTYPE.URL_PHISHING_SUSPECT,
         raw: text,
         url: url.href,
         hostname,
@@ -229,6 +315,7 @@ export function classifyInputDetail(rawInput = '') {
     if (isHomepage) {
       return {
         inputType: INPUT_TYPE.URL_HOME,
+        subType: INPUT_SUBTYPE.URL_HOME,
         raw: text,
         url: url.href,
         hostname,
@@ -241,6 +328,7 @@ export function classifyInputDetail(rawInput = '') {
     // 3D. Jika bukan homepage, ini adalah URL Artikel Berita Spesifik
     return {
       inputType: INPUT_TYPE.URL_ARTICLE,
+      subType: INPUT_SUBTYPE.URL_ARTICLE,
       raw: text,
       url: url.href,
       hostname,
@@ -254,30 +342,138 @@ export function classifyInputDetail(rawInput = '') {
   if (attempted) {
     return {
       inputType: INPUT_TYPE.INVALID_URL,
+      subType: INPUT_SUBTYPE.INVALID_URL,
       raw: text,
       reason: parsed.reason || 'malformed_url_syntax',
       label: 'Format URL Tidak Valid',
     };
   }
 
-  // 4. CEK PESAN SCAM / SOCIAL ENGINEERING MESSAGE
+  // 4. CEK PESAN PENAWARAN & REKAYASA SOSIAL (VeriFact ID 5.0 §2)
   const textLower = text.toLowerCase();
-  const triggerMatches = SOCIAL_ENGINEERING_TRIGGERS.filter((tr) => textLower.includes(tr));
+  const words = text.split(/\s+/).filter(Boolean);
 
-  if (triggerMatches.length >= 2 || (triggerMatches.length === 1 && text.length > 50)) {
+  // 4A. JUAL BELI AKUN GAME / SOSMED (ACCOUNT_SALE)
+  const accountSaleMatches = ACCOUNT_SALE_TRIGGERS.filter((tr) => textLower.includes(tr));
+  if (accountSaleMatches.length >= 1 && (textLower.includes('jual') || textLower.includes('akun') || textLower.includes('transfer') || textLower.includes('beli'))) {
     return {
       inputType: INPUT_TYPE.MESSAGE,
+      subType: INPUT_SUBTYPE.ACCOUNT_SALE,
       raw: text,
-      triggerMatches,
-      label: 'Pesan Percakapan / Rekayasa Sosial',
+      triggerMatches: accountSaleMatches,
+      isScamMessage: true,
+      label: 'Penawaran Jual Beli Akun Game / Media Sosial',
     };
   }
 
-  // 5. TEKS BIASA / KLAIM BERITA UMUM
-  const words = text.split(/\s+/).filter(Boolean);
+  // 4B. TAWAN INVESTASI BODONG (INVESTMENT_OFFER)
+  const investmentMatches = INVESTMENT_TRIGGERS.filter((tr) => textLower.includes(tr));
+  if (investmentMatches.length >= 1) {
+    return {
+      inputType: INPUT_TYPE.MESSAGE,
+      subType: INPUT_SUBTYPE.INVESTMENT_OFFER,
+      raw: text,
+      triggerMatches: investmentMatches,
+      isScamMessage: true,
+      label: 'Tawaran Investasi Berisiko Tinggi / Titip Dana',
+    };
+  }
+
+  // 4C. TAWAN LOWONGAN KERJA PALSU (JOB_OFFER)
+  const jobMatches = JOB_OFFER_TRIGGERS.filter((tr) => textLower.includes(tr));
+  if (jobMatches.length >= 1) {
+    return {
+      inputType: INPUT_TYPE.MESSAGE,
+      subType: INPUT_SUBTYPE.JOB_OFFER,
+      raw: text,
+      triggerMatches: jobMatches,
+      isScamMessage: true,
+      label: 'Tawaran Lowongan Kerja / Tugas Komisi',
+    };
+  }
+
+  // 4D. PENAWARAN PRODUK MURAH / LELANG SITAAN (PRODUCT_OFFER)
+  const productMatches = PRODUCT_OFFER_TRIGGERS.filter((tr) => textLower.includes(tr));
+  if (productMatches.length >= 1) {
+    return {
+      inputType: INPUT_TYPE.MESSAGE,
+      subType: INPUT_SUBTYPE.PRODUCT_OFFER,
+      raw: text,
+      triggerMatches: productMatches,
+      isScamMessage: true,
+      label: 'Penawaran Produk Miring / Lelang Sitaan',
+    };
+  }
+
+  // 4E. TRANSAKSI MARKETPLACE DI LUAR SISTEM (MARKETPLACE_MESSAGE)
+  const marketplaceMatches = MARKETPLACE_TRIGGERS.filter((tr) => textLower.includes(tr));
+  if (marketplaceMatches.length >= 1) {
+    return {
+      inputType: INPUT_TYPE.MESSAGE,
+      subType: INPUT_SUBTYPE.MARKETPLACE_MESSAGE,
+      raw: text,
+      triggerMatches: marketplaceMatches,
+      isScamMessage: true,
+      label: 'Pesan Marketplace Di Luar Sistem Transaksi Resmi',
+    };
+  }
+
+  // 4F. PHISHING MESSAGE DENGAN LINK UMUR
+  const hasPhishLinkPrompt = /https?:\/\/[^\s]+/i.test(text) || textLower.includes('klik link') || textLower.includes('buka link') || textLower.includes('link ini');
+  const hasPhishContext = ['hadiah', 'undian', 'verifikasi', 'otp', 'saldo', 'kuota', 'subsidi', 'bansos', 'klaim', 'pemenang', 'bantuan'].some((kw) => textLower.includes(kw));
+  if (hasPhishLinkPrompt && hasPhishContext) {
+    return {
+      inputType: INPUT_TYPE.MESSAGE,
+      subType: INPUT_SUBTYPE.PHISHING_MESSAGE,
+      raw: text,
+      isScamMessage: true,
+      label: 'Pesan Pengelabuan Tautan / Phishing Message',
+    };
+  }
+
+  // 4G. SCAM MESSAGE UMUM (URGENCY, PEMBLOKIRAN, UNDIAN)
+  const triggerMatches = SOCIAL_ENGINEERING_TRIGGERS.filter((tr) => textLower.includes(tr));
+  if (triggerMatches.length >= 2 || (triggerMatches.length === 1 && (text.length > 30 || textLower.includes('selamat') || textLower.includes('diblokir')))) {
+    return {
+      inputType: INPUT_TYPE.MESSAGE,
+      subType: INPUT_SUBTYPE.SCAM_MESSAGE,
+      raw: text,
+      triggerMatches,
+      isScamMessage: true,
+      label: 'Pesan Rekayasa Sosial / Scam Message',
+    };
+  }
+
+  // 4H. PESAN PERCAKAPAN BIASA (CHAT_MESSAGE)
+  const chatMatches = CHAT_MESSAGE_TRIGGERS.filter((tr) => textLower.includes(tr));
+  if (chatMatches.length >= 1 && triggerMatches.length === 0) {
+    return {
+      inputType: INPUT_TYPE.MESSAGE,
+      subType: INPUT_SUBTYPE.CHAT_MESSAGE,
+      raw: text,
+      chatMatches,
+      label: 'Pesan Percakapan Biasa',
+    };
+  }
+
+  // 5. KLAIM BERITA UMUM / NEWS CLAIM (VeriFact ID 5.0 §2 & §45 Test 8)
+  const newsMatches = NEWS_CLAIM_TRIGGERS.filter((tr) => textLower.includes(tr));
+  if (newsMatches.length >= 1 && words.length >= 3) {
+    return {
+      inputType: INPUT_TYPE.CLAIM_TEXT,
+      subType: INPUT_SUBTYPE.NEWS_CLAIM,
+      raw: text,
+      wordsCount: words.length,
+      newsMatches,
+      label: 'Klaim Berita / Pernyataan Kebijakan',
+    };
+  }
+
+  // 6. TEKS PERNYATAAN BIASA
   if (words.length >= 3) {
     return {
       inputType: INPUT_TYPE.CLAIM_TEXT,
+      subType: INPUT_SUBTYPE.CLAIM_TEXT,
       raw: text,
       wordsCount: words.length,
       label: 'Pernyataan / Teks Berita',
@@ -286,6 +482,7 @@ export function classifyInputDetail(rawInput = '') {
 
   return {
     inputType: INPUT_TYPE.UNKNOWN,
+    subType: INPUT_SUBTYPE.UNKNOWN,
     raw: text,
     label: 'Teks Pendek Tidak Dikenal',
   };

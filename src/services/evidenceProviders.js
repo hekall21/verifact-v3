@@ -37,32 +37,71 @@ export const PROVIDER_STATUS = {
 };
 
 /**
- * Normalisasi format data bukti ke skema baku VeriFact ID.
+/**
+ * VeriFact ID 5.0 Standard Source Types (§5)
+ */
+export const SOURCE_TYPE = {
+  OFFICIAL: 'OFFICIAL',
+  GOVERNMENT: 'GOVERNMENT',
+  NEWS_MEDIA: 'NEWS_MEDIA',
+  FACT_CHECK: 'FACT_CHECK',
+  SECURITY_ORGANIZATION: 'SECURITY_ORGANIZATION',
+  ACADEMIC: 'ACADEMIC',
+  COMMUNITY_REPORT: 'COMMUNITY_REPORT',
+  SOCIAL_MEDIA: 'SOCIAL_MEDIA',
+  BLOG: 'BLOG',
+  UNKNOWN: 'UNKNOWN',
+};
+
+export function normalizeSourceType(rawType, tier, domain = '') {
+  const d = String(domain || '').toLowerCase();
+  const t = String(rawType || '').toUpperCase().replace(/[-\s]/g, '_');
+
+  if (t === 'GOVERNMENT' || d.endsWith('.go.id') || d.endsWith('.gov')) return SOURCE_TYPE.GOVERNMENT;
+  if (t === 'OFFICIAL' || tier === 1) return SOURCE_TYPE.OFFICIAL;
+  if (t === 'FACT_CHECK' || tier === 3) return SOURCE_TYPE.FACT_CHECK;
+  if (t === 'NEWS_MEDIA' || t === 'NEWS' || tier === 2) return SOURCE_TYPE.NEWS_MEDIA;
+  if (t === 'SECURITY_ORGANIZATION' || t === 'SECURITY') return SOURCE_TYPE.SECURITY_ORGANIZATION;
+  if (t === 'ACADEMIC' || d.endsWith('.ac.id') || d.endsWith('.edu')) return SOURCE_TYPE.ACADEMIC;
+  if (t === 'COMMUNITY_REPORT') return SOURCE_TYPE.COMMUNITY_REPORT;
+  if (t === 'SOCIAL_MEDIA') return SOURCE_TYPE.SOCIAL_MEDIA;
+  if (t === 'BLOG') return SOURCE_TYPE.BLOG;
+  return SOURCE_TYPE.UNKNOWN;
+}
+
+/**
+ * Normalisasi format data bukti ke skema baku VeriFact ID 5.0 (§5).
+ * Objek wajib memuat:
+ * { title, url, domain, publisher, sourceType, publishedAt, retrievedAt, relevance, contentAvailable }
  */
 export function normalizeEvidenceItem(raw = {}) {
   const domain = String(raw.domain || '').toLowerCase().replace(/^www\./, '');
   const tier = raw.tier || classifyDomainTier(domain, { tier: raw.sourceType === 'official' ? 1 : undefined });
+  const normalizedType = normalizeSourceType(raw.sourceType, tier, domain);
+  const contentText = raw.content || raw.snippet || '';
 
   return {
     id: raw.id || `ev-${Math.random().toString(36).slice(2, 9)}`,
+    title: raw.title || 'Laporan Bukti Terkait',
     url: raw.url || '#',
     canonicalUrl: raw.canonicalUrl || raw.url || '#',
     domain: domain || 'unknown-domain',
     publisher: raw.publisher || domain || 'Sumber Publikasi',
-    title: raw.title || 'Laporan Bukti Terkait',
-    author: raw.author || 'Tim Redaksi / Instansi Resmi',
+    sourceType: normalizedType,
     publishedAt: raw.publishedAt || new Date().toISOString().slice(0, 10),
-    updatedAt: raw.updatedAt || raw.publishedAt || new Date().toISOString().slice(0, 10),
-    sourceType: raw.sourceType || (tier === 1 ? 'official' : tier === 3 ? 'fact_check' : 'news'),
+    retrievedAt: raw.retrievedAt || new Date().toISOString(),
+    relevance: raw.relevance || 'high',
+    contentAvailable: Boolean(raw.contentAvailable ?? (contentText.length > 0)),
+    // Internal metadata & scoring
     tier,
-    content: raw.content || raw.snippet || '',
-    snippet: raw.snippet || raw.content?.slice(0, 160) || '',
+    author: raw.author || 'Tim Redaksi / Instansi Resmi',
+    updatedAt: raw.updatedAt || raw.publishedAt || new Date().toISOString().slice(0, 10),
+    content: contentText,
+    snippet: raw.snippet || contentText.slice(0, 160) || '',
     stance: raw.stance || 'context', // 'supports' | 'refutes' | 'context'
     matchType: raw.matchType || 'NORMAL_MATCH', // 'MATCHED FACT CHECK' | 'RELATED FACT CHECK' | 'PRIMARY_REPORTING_SOURCE'
     similarityScore: raw.similarityScore || 0.5,
     language: raw.language || 'id',
-    retrievedAt: new Date().toISOString(),
-    relevance: raw.relevance || 'high',
   };
 }
 

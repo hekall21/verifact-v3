@@ -7,9 +7,9 @@
 export default {
   app: {
     name: 'VeriFact ID',
-    tagline: 'Transparent Information Verification & Cyber Defense Platform',
-    subtitle: 'Inspect news URLs, viral claims, chain messages, bank accounts, and contact numbers before you trust.',
-    badge: 'v4.2 Pro',
+    tagline: 'Research + Fact Verification + Scam Analysis + Source Intelligence Engine',
+    subtitle: 'Deep research, verified source fact-checking, scam threat analysis, and cyber security education.',
+    badge: 'v5.0',
     demoModeBadge: 'Local Analysis Mode (API Ready)',
     offlineNotice: 'Running in self-contained mode with zero external cloud dependencies.',
   },

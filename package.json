@@ -1,9 +1,9 @@
 {
   "name": "verifact-id",
   "private": true,
-  "version": "4.3.0",
+  "version": "5.0.0",
   "type": "module",
-  "description": "VeriFact ID - transparent fact-checking and cyber-scam verification platform",
+  "description": "VeriFact ID 5.0 — Research + Fact Verification + Scam Analysis + Source Intelligence + Security Education Engine",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

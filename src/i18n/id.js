@@ -7,9 +7,9 @@
 export default {
   app: {
     name: 'VeriFact ID',
-    tagline: 'Platform Verifikasi Informasi & Perlindungan Siber Transparan',
-    subtitle: 'Periksa tautan berita, klaim viral, pesan berantai, rekening, dan nomor kontak sebelum percaya.',
-    badge: 'v4.2 Pro',
+    tagline: 'Research + Fact Verification + Scam Analysis + Source Intelligence Engine',
+    subtitle: 'Riset mendalam, cek fakta berbasis sumber terverifikasi, analisis penipuan, dan edukasi keamanan siber.',
+    badge: 'v5.0',
     demoModeBadge: 'Mode Analisis Lokal (Siap Hubung API)',
     offlineNotice: 'Aplikasi berjalan dalam mode mandiri tanpa dependensi cloud luar.',
   },

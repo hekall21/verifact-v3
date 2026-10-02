@@ -45,7 +45,8 @@ import {
   questionsEn,
 } from '../src/data/quiz/index.js';
 import { verificationRepository } from '../src/services/verificationRepository.js';
-import { classifyInputDetail, INPUT_TYPE } from '../src/utils/inputClassifier.js';
+import { classifyInputDetail, INPUT_TYPE, INPUT_SUBTYPE } from '../src/utils/inputClassifier.js';
+import { maskSensitiveData } from '../src/utils/sanitize.js';
 import { getPublisherRecord, isRegisteredPublisher } from '../src/data/publisherRegistry.js';
 import { inspectUrlSecurity } from '../src/services/sourceSecurityService.js';
 import { gatherEvidenceFromAllProviders } from '../src/services/evidenceProviders.js';
@@ -526,5 +527,294 @@ test('Case K (§36): All providers fail / 0 evidence -> INSUFFICIENT_EVIDENCE / 
   assert.notEqual(verdictResult.verdict, VERDICT.MISLEADING, '0 evidence dilarang divonis MISLEADING');
   assert.notEqual(verdictResult.verdict, VERDICT.HOAX, '0 evidence dilarang divonis HOAX');
 });
+
+// ============================================================
+// PART 6: VERIFACT ID 5.0 — MANDATORY 12 TEST CASES (§45) & SCHEMAS
+// ============================================================
+
+test('Test 1 (§45): https://www.detik.com/ -> URL_HOME, teridentifikasi detikcom, bukan FALSE/HOAX', async () => {
+  const input = 'https://www.detik.com/';
+  const res = await runVerification(input);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, 'URL_HOME');
+  assert.equal(res.isNewsHomepage, true);
+  assert.equal(res.verdict, 'IDENTIFIED_SOURCE');
+  assert.equal(res.sourceAssessment.publisher, 'detikcom');
+  assert.notEqual(res.verdict, 'FALSE');
+  assert.notEqual(res.verdict, 'HOAX');
+  assert.ok(Array.isArray(res.sources));
+  assert.ok(res.sources.length > 0);
+  assert.ok(res.education);
+  assert.ok(Array.isArray(res.reportResources));
+});
+
+test('Test 2 (§45): https://news.detik.com/... -> URL_ARTICLE, ekstrak artikel, summary, klaim, sumber pembanding', async () => {
+  const articleUrl = 'https://news.detik.com/berita/d-1234567/kebijakan-vaksinasi-lansia-resmi-berlaku';
+  const res = await runVerification(articleUrl);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, 'URL_ARTICLE');
+  assert.ok(res.sourceSummary, 'Source Summary (§8) wajib ada untuk URL_ARTICLE');
+  assert.ok(res.articleExplanation, 'Article Explanation (§9) wajib ada untuk URL_ARTICLE');
+  assert.ok(res.articleExplanation.simpleExplanation);
+  assert.ok(res.articleExplanation.context);
+  assert.ok(res.articleExplanation.mainClaim);
+  assert.ok(res.articleExplanation.pointsToNote);
+  assert.ok(Array.isArray(res.atomicClaims));
+  assert.ok(res.atomicClaims.length > 0);
+  assert.ok(Array.isArray(res.sources));
+  assert.ok(res.sources.length > 0);
+});
+
+test('Test 3 (§45): Selamat Anda memenangkan undian 100 juta klik link... -> SCAM_MESSAGE / PHISHING_MESSAGE, risk high/critical', async () => {
+  const msg = 'Selamat! Anda memenangkan undian 100 juta rupiah dari Telkomsel. Segera klaim di https://undian-telkomsel-2026.invalid/hadiah';
+  const classification = classifyInputDetail(msg);
+  assert.equal(classification.isScamMessage, true);
+  assert.ok(
+    classification.subType === INPUT_SUBTYPE.PHISHING_MESSAGE ||
+    classification.subType === INPUT_SUBTYPE.SCAM_MESSAGE
+  );
+
+  const res = await runVerification(msg);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, 'MESSAGE');
+  assert.ok(res.scamAnalysis, 'scamAnalysis (§17, §29) wajib tersedia');
+  assert.ok(
+    res.scamAnalysis.riskLevel === 'CRITICAL RISK' ||
+    res.scamAnalysis.riskLevel === 'HIGH RISK'
+  );
+  assert.ok(res.scamAnalysis.whatIsOffered);
+  assert.ok(res.scamAnalysis.whyRisky);
+  assert.ok(Array.isArray(res.scamAnalysis.thingsToVerify));
+  assert.ok(Array.isArray(res.scamAnalysis.recommendedActions));
+});
+
+test('Test 4 (§45): Jual akun ML Mythic murah 50rb transfer dulu -> ACCOUNT_SALE / SCAM_MESSAGE, risk high', async () => {
+  const msg = 'Jual akun ML Mythic Glory skin kolektor murah cuma 50rb butuh duit mendesak transfer dulu langsung kirim email montoon';
+  const classification = classifyInputDetail(msg);
+  assert.equal(classification.subType, INPUT_SUBTYPE.ACCOUNT_SALE);
+  assert.equal(classification.isScamMessage, true);
+
+  const res = await runVerification(msg);
+  assert.equal(res.ok, true);
+  assert.equal(res.subType, INPUT_SUBTYPE.ACCOUNT_SALE);
+  assert.ok(res.scamAnalysis);
+  assert.ok(
+    res.scamAnalysis.riskLevel === 'HIGH RISK' ||
+    res.scamAnalysis.riskLevel === 'CRITICAL RISK'
+  );
+  assert.match(res.scamAnalysis.whatIsOffered, /Akun Game/i);
+  assert.ok(res.scamAnalysis.thingsToVerify.some(t => /rekber|escrow|resmi|ToS/i.test(t)));
+});
+
+test('Test 5 (§45): Presiden Jokowi mengumumkan libur nasional 1 bulan -> NEWS_CLAIM, search evidence, compare sources', async () => {
+  const claimText = 'Presiden Jokowi mengumumkan libur nasional 1 bulan penuh mulai besok untuk seluruh instansi';
+  const classification = classifyInputDetail(claimText);
+  assert.equal(classification.subType, INPUT_SUBTYPE.NEWS_CLAIM);
+
+  const res = await runVerification(claimText);
+  assert.equal(res.ok, true);
+  assert.equal(res.subType, INPUT_SUBTYPE.NEWS_CLAIM);
+  assert.ok(Array.isArray(res.sources));
+  assert.ok(res.sources.length > 0);
+  assert.ok(res.sourceSummary);
+  assert.ok(res.articleExplanation);
+  assert.ok(Array.isArray(res.atomicClaims));
+  assert.ok(res.atomicClaims.length > 0);
+});
+
+test('Test 6 (§45): 081234567890 -> PHONE_NUMBER, carrier detected, reporting status checked', async () => {
+  const phone = '081234567890';
+  const classification = classifyInputDetail(phone);
+  assert.equal(classification.inputType, INPUT_TYPE.PHONE_NUMBER);
+
+  const res = await runVerification(phone);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, INPUT_TYPE.PHONE_NUMBER);
+  assert.ok(res.phoneDetails);
+  assert.ok(res.phoneDetails.carrier);
+  assert.ok(Array.isArray(res.sources));
+  assert.ok(res.sources.some(s => s.domain.includes('aduannomor') || s.domain.includes('komdigi') || s.sourceType === 'GOVERNMENT'));
+});
+
+test('Test 7 (§45): BCA 1234567890 -> BANK_ACCOUNT, bank detected, fraud report checked', async () => {
+  const bankAcc = 'BCA 1234567890';
+  const classification = classifyInputDetail(bankAcc);
+  assert.equal(classification.inputType, INPUT_TYPE.BANK_ACCOUNT);
+
+  const res = await runVerification(bankAcc);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, INPUT_TYPE.BANK_ACCOUNT);
+  assert.ok(res.accountDetails);
+  assert.equal(res.accountDetails.bank, 'BCA');
+  assert.ok(Array.isArray(res.sources));
+  assert.ok(res.sources.some(s => s.domain.includes('cekrekening') || s.sourceType === 'GOVERNMENT'));
+});
+
+test('Test 8 (§45): https://login-bca-palsu.com -> URL_PHISHING_SUSPECT, fake domain detected', async () => {
+  const phishingUrl = 'https://login-bca-palsu.com';
+  const classification = classifyInputDetail(phishingUrl);
+  assert.equal(classification.inputType, INPUT_TYPE.URL_PHISHING_SUSPECT);
+
+  const res = await runVerification(phishingUrl);
+  assert.equal(res.ok, true);
+  assert.equal(res.inputType, INPUT_TYPE.URL_PHISHING_SUSPECT);
+  assert.equal(res.status, 'PHISHING');
+  assert.ok(res.urlSecurityDetails);
+});
+
+test('Test 9 (§45): Lowongan kerja like video TikTok dibayar 500rb per hari deposit dulu -> JOB_OFFER / SCAM_MESSAGE, fake job scam detected', async () => {
+  const jobMsg = 'Lowongan kerja paruh waktu online like dan follow video TikTok dibayar 500rb per hari tanpa keahlian deposit dulu saldo aktivasi';
+  const classification = classifyInputDetail(jobMsg);
+  assert.equal(classification.subType, INPUT_SUBTYPE.JOB_OFFER);
+  assert.equal(classification.isScamMessage, true);
+
+  const res = await runVerification(jobMsg);
+  assert.equal(res.ok, true);
+  assert.equal(res.subType, INPUT_SUBTYPE.JOB_OFFER);
+  assert.ok(
+    res.scamAnalysis.riskLevel === 'HIGH RISK' ||
+    res.scamAnalysis.riskLevel === 'CRITICAL RISK'
+  );
+  assert.match(res.scamAnalysis.whatIsOffered, /Pekerjaan|Tugas/i);
+  assert.match(res.scamAnalysis.whyRisky, /deposit|keuangan|ponzi|biaya/i);
+});
+
+test('Test 10 (§45): Titip dana trading profit 30% per hari garansi modal kembali -> INVESTMENT_OFFER / SCAM_MESSAGE, ponzi/investment scam detected', async () => {
+  const invMsg = 'Program titip dana trading forex profit pasti 30% per hari garansi anti rugi modal kembali dalam 24 jam legal berizin';
+  const classification = classifyInputDetail(invMsg);
+  assert.equal(classification.subType, INPUT_SUBTYPE.INVESTMENT_OFFER);
+  assert.equal(classification.isScamMessage, true);
+
+  const res = await runVerification(invMsg);
+  assert.equal(res.ok, true);
+  assert.equal(res.subType, INPUT_SUBTYPE.INVESTMENT_OFFER);
+  assert.ok(
+    res.scamAnalysis.riskLevel === 'HIGH RISK' ||
+    res.scamAnalysis.riskLevel === 'CRITICAL RISK'
+  );
+  assert.match(res.scamAnalysis.whatIsOffered, /Investasi|Titip Dana|Trading/i);
+  assert.match(res.scamAnalysis.whyRisky, /OJK|ilegal|Ponzi|pasti untung/i);
+});
+
+test('Test 11 (§45): Artikel tidak bisa diakses / bot blocked -> SOURCE_CONTENT_UNAVAILABLE, jujur bilang tidak bisa dibaca', async () => {
+  const unreachableUrl = 'https://situs-tidak-dapat-dihubungi-sama-sekali-xyz123.com/artikel-berita';
+  const res = await runVerification(unreachableUrl);
+  assert.equal(res.ok, true);
+  assert.equal(res.status, 'SOURCE_CONTENT_UNAVAILABLE');
+  assert.equal(res.verdict, 'SOURCE_CONTENT_UNAVAILABLE');
+  assert.equal(res.claim, null, 'Tidak boleh mengarang klaim bila konten gagal dibaca');
+  assert.equal(res.confidence, null, 'Confidence harus null bila isi belum terbaca');
+  assert.deepEqual(res.evidence, []);
+});
+
+test('Test 12 (§45): Masukan tidak jelas / asdfghjkl -> UNKNOWN / CLAIM_TEXT, jujur bilang informasi tidak cukup', async () => {
+  const gibberish = 'asdfghjkl qwertyuiop zxcvbnm';
+  const res = await runVerification(gibberish);
+  assert.equal(res.ok, true);
+  assert.ok(
+    res.verdict === VERDICT.UNVERIFIED ||
+    res.verdict === VERDICT.INSUFFICIENT_EVIDENCE
+  );
+  assert.notEqual(res.verdict, VERDICT.FALSE, 'Masukan acak tidak boleh divonis FALSE tanpa bukti');
+  assert.notEqual(res.verdict, VERDICT.HOAX, 'Masukan acak tidak boleh divonis HOAX tanpa bukti');
+  assert.ok(res.honestNotice);
+});
+
+test('Test 13 (§30): Sensitive Data Masking -> maskSensitiveData masks phone numbers, OTP, PIN, credit cards', () => {
+  const rawText = 'Halo nomor saya 081234567890 dan +6281298765432. Kode OTP Anda: 492817. PIN: 123456. Card: 4111 2222 3333 4444.';
+  const masked = maskSensitiveData(rawText);
+
+  assert.equal(masked.includes('0812****7890'), true, 'Nomor 081234567890 harus dimask menjadi 0812****7890');
+  assert.equal(masked.includes('+62812****5432'), true, 'Nomor +6281298765432 harus dimask');
+  assert.equal(masked.includes('492817'), false, 'OTP token tidak boleh bocor');
+  assert.equal(masked.includes('123456'), false, 'PIN tidak boleh bocor');
+  assert.equal(masked.includes('4111 2222 3333 4444'), false, 'Nomor kartu kredit tidak boleh bocor');
+  assert.match(masked, /Kode OTP Anda: \*{6}/);
+  assert.match(masked, /PIN: \*{6}/);
+  assert.match(masked, /\*{4}-\*{4}-\*{4}-4444/);
+});
+
+test('Test 14 (§5): Source Discovery strictly conforms to 9-field schema', async () => {
+  const res = await runVerification('https://news.detik.com/berita/d-1234567/kebijakan-vaksinasi-lansia-resmi-berlaku');
+  assert.ok(Array.isArray(res.sources));
+  assert.ok(res.sources.length > 0);
+
+  const requiredKeys = [
+    'title',
+    'url',
+    'domain',
+    'publisher',
+    'sourceType',
+    'publishedAt',
+    'retrievedAt',
+    'relevance',
+    'contentAvailable',
+  ];
+
+  for (const source of res.sources) {
+    for (const key of requiredKeys) {
+      assert.ok(key in source, `Field "${key}" wajib ada dalam objek sumber sesuai §5`);
+    }
+    // Cek bahwa sourceType adalah salah satu dari enum terstandarisasi
+    const validTypes = [
+      'OFFICIAL',
+      'GOVERNMENT',
+      'NEWS_MEDIA',
+      'FACT_CHECK',
+      'SECURITY_ORGANIZATION',
+      'ACADEMIC',
+      'COMMUNITY_REPORT',
+      'SOCIAL_MEDIA',
+      'BLOG',
+      'UNKNOWN',
+    ];
+    assert.ok(
+      validTypes.includes(source.sourceType),
+      `sourceType "${source.sourceType}" harus valid sesuai §5`
+    );
+  }
+});
+
+test('Test 15 (§AI): Gemini Agent Service API Key & Model state handling', async () => {
+  const {
+    getGeminiApiKey,
+    setGeminiApiKey,
+    getGeminiModel,
+    setGeminiModel,
+    testGeminiConnection,
+    runGeminiAgentAnalysis,
+    GEMINI_MODELS,
+  } = await import('../src/services/geminiAgentService.js');
+
+  // Pastikan daftar model Gemini terdefinisi
+  assert.ok(Array.isArray(GEMINI_MODELS));
+  assert.ok(GEMINI_MODELS.some((m) => m.id === 'gemini-2.5-flash'));
+
+  // Test set dan get model
+  setGeminiModel('gemini-1.5-flash');
+  assert.equal(getGeminiModel(), 'gemini-1.5-flash');
+  setGeminiModel('gemini-2.5-flash');
+  assert.equal(getGeminiModel(), 'gemini-2.5-flash');
+
+  // Test connection tanpa key harus mengembalikan ok: false
+  const testRes = await testGeminiConnection('');
+  assert.equal(testRes.ok, false);
+  assert.match(testRes.message, /belum diisi/i);
+
+  // Test run analysis tanpa API key harus melempar error jelas
+  setGeminiApiKey('');
+  await assert.rejects(
+    async () => {
+      await runGeminiAgentAnalysis({
+        inputType: 'CLAIM_TEXT',
+        text: 'Klaim uji coba',
+      });
+    },
+    {
+      message: /API Key Google AI Studio belum dikonfigurasi/i,
+    }
+  );
+});
+
 
 

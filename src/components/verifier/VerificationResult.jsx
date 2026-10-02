@@ -25,6 +25,11 @@ import { ConflictAlertBanner } from './ConflictAlertBanner.jsx';
 import { TemporalTimelineCard } from './TemporalTimelineCard.jsx';
 import { WhyThisResultModal } from './WhyThisResultModal.jsx';
 import { PresentationSummaryCard } from './PresentationSummaryCard.jsx';
+import { PerplexitySourcePanel } from './PerplexitySourcePanel.jsx';
+import { ArticleExplanationCard } from './ArticleExplanationCard.jsx';
+import { ScamAnalysisCard } from './ScamAnalysisCard.jsx';
+import { ContextualEducationCard } from './ContextualEducationCard.jsx';
+import { GeminiAgentCard } from './GeminiAgentCard.jsx';
 import {
   CopyIcon,
   CheckIcon,
@@ -38,12 +43,13 @@ import {
   PhoneIcon,
   CreditCardIcon,
   LinkIcon,
+  SparklesIcon,
 } from '../common/Icons.jsx';
 import { buildShareableReportUrl } from '../../utils/reportIntegrity.js';
 import { searchMoreEvidence } from '../../services/analysisService.js';
 import { t } from '../../i18n/index.js';
 
-export function VerificationResult({ result = {}, onReset, onRetry, lang = 'id' }) {
+export function VerificationResult({ result = {}, onReset, onRetry, lang = 'id', onOpenApiKeyModal }) {
   const [activeResult, setActiveResult] = useState(result);
   const [searchingMore, setSearchingMore] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -56,6 +62,7 @@ export function VerificationResult({ result = {}, onReset, onRetry, lang = 'id' 
 
   const {
     inputType = 'CLAIM_TEXT',
+    subType = activeResult.subType,
     status = activeResult.verdict,
     verdict,
     confidence = null,
@@ -64,6 +71,12 @@ export function VerificationResult({ result = {}, onReset, onRetry, lang = 'id' 
     claimAssessment = {},
     presentationSummary = {},
     evidence = [],
+    sources = activeResult.sources || evidence || [],
+    sourceSummary = activeResult.sourceSummary,
+    articleExplanation = activeResult.articleExplanation,
+    scamAnalysis = activeResult.scamAnalysis,
+    education = activeResult.education,
+    reportResources = activeResult.reportResources || [],
     timestamp,
     verificationId,
     reportHash,
@@ -125,9 +138,9 @@ export function VerificationResult({ result = {}, onReset, onRetry, lang = 'id' 
       claim?.mainClaim ||
       (isHomepage ? `[Website: ${sourceAssessment.domain || 'Media'}]` : '[Klaim dalam pemeriksaan]');
 
-    const summaryText = `[VeriFact ID 4.3 Report]
+    const summaryText = `[VeriFact ID 5.0 Report]
 Verification ID: ${verificationId || 'VF-2026-XXXXXX'}
-Jenis Masukan: ${inputType}
+Jenis Masukan: ${subType ? `${inputType} (${subType})` : inputType}
 Status: ${verdictLabel} (Keyakinan: ${confidenceText})
 Sumber: ${sourceAssessment.publisher || sourceAssessment.domain || 'Sumber Terdaftar'}
 Klaim/Konten: "${claimText}"
@@ -152,7 +165,12 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
       {/* 1. TOP CARD: PRESENTATION SUMMARY CARD (§31 & §38) */}
       <PresentationSummaryCard result={activeResult} lang={lang} />
 
-      {/* 2. TOP ACTIONS BAR */}
+      {/* 2. SOURCES PANEL (PERPLEXITY STYLE) (§4, §5, §35) */}
+      {sources && sources.length > 0 && (
+        <PerplexitySourcePanel sources={sources} lang={lang} />
+      )}
+
+      {/* 3. TOP ACTIONS BAR */}
       <div
         className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border shadow-sm"
         style={{
@@ -181,6 +199,21 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
         </div>
 
         <div className="flex items-center space-x-2">
+          {onOpenApiKeyModal && (
+            <button
+              type="button"
+              onClick={onOpenApiKeyModal}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all shadow-sm border hover:opacity-85 text-cyan-400"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--vf-primary) 10%, transparent)',
+                borderColor: 'color-mix(in srgb, var(--vf-primary) 30%, transparent)',
+              }}
+            >
+              <SparklesIcon className="w-3.5 h-3.5 text-cyan-400" />
+              <span>AI Studio Agent</span>
+            </button>
+          )}
+
           {!isHomepage && (
             <button
               type="button"
@@ -524,65 +557,91 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
       )}
 
       {/* ============================================================ */}
-      {/* 6. DEDICATED VIEW: MESSAGE THREAT ANALYZER (§14)             */}
+      {/* 6. DEDICATED VIEW: MESSAGE THREAT ANALYZER (§14, §17, §29)   */}
       {/* ============================================================ */}
-      {isMessage && messageDetails && (
-        <div
-          className="rounded-2xl p-6 sm:p-8 border shadow-lg space-y-6"
-          style={{
-            backgroundColor: 'var(--vf-surface)',
-            borderColor: 'var(--vf-border)',
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <VerdictBadge verdict={messageDetails.status} lang={lang} size="lg" />
-            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
-              Skor Risiko: {messageDetails.riskScore}/100
-            </span>
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: 'var(--vf-text-muted)' }}>
-              Pesan Teks yang Dianalisis:
-            </span>
-            <div className="p-4 rounded-xl font-mono text-xs sm:text-sm bg-slate-950 text-slate-200 border border-white/10 leading-relaxed">
-              &ldquo;{messageDetails.text}&rdquo;
-            </div>
-          </div>
-
-          {/* Social Engineering Indicators */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--vf-text-muted)' }}>
-              Indikator Rekayasa Sosial Terdeteksi ({messageDetails.indicators?.length || 0}):
-            </h4>
-            <div className="space-y-2">
-              {(messageDetails.indicators || []).map((ind, idx) => (
-                <div
-                  key={idx}
-                  className="p-3.5 rounded-xl border space-y-1 text-xs"
-                  style={{ backgroundColor: 'var(--vf-surface-muted)', borderColor: 'var(--vf-border)' }}
-                >
-                  <div className="font-bold flex items-center space-x-2 text-rose-500">
-                    <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0" />
-                    <span>{ind.title || ind.category}</span>
-                  </div>
-                  <p style={{ color: 'var(--vf-text-secondary)', lineHeight: 1.4 }}>{ind.detail}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
+      {isMessage && (
+        scamAnalysis ? (
+          <ScamAnalysisCard
+            scamAnalysis={scamAnalysis}
+            subType={subType}
+            maskedText={messageDetails?.text}
+            lang={lang}
+          />
+        ) : messageDetails ? (
           <div
-            className="p-4 rounded-xl border text-xs leading-relaxed space-y-1"
+            className="rounded-2xl p-6 sm:p-8 border shadow-lg space-y-6"
             style={{
-              backgroundColor: 'color-mix(in srgb, var(--vf-warning) 10%, transparent)',
-              borderColor: 'color-mix(in srgb, var(--vf-warning) 30%, transparent)',
+              backgroundColor: 'var(--vf-surface)',
+              borderColor: 'var(--vf-border)',
             }}
           >
-            <span className="font-bold block text-amber-600 dark:text-amber-400">Rekomendasi Keamanan:</span>
-            <p style={{ color: 'var(--vf-text-secondary)' }}>{messageDetails.warningMessage}</p>
+            <div className="flex items-center gap-3">
+              <VerdictBadge verdict={messageDetails.status} lang={lang} size="lg" />
+              <span className="text-xs font-mono font-bold px-2.5 py-1 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                Skor Risiko: {messageDetails.riskScore}/100
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wider block" style={{ color: 'var(--vf-text-muted)' }}>
+                Pesan Teks yang Dianalisis:
+              </span>
+              <div className="p-4 rounded-xl font-mono text-xs sm:text-sm bg-slate-950 text-slate-200 border border-white/10 leading-relaxed">
+                &ldquo;{messageDetails.text}&rdquo;
+              </div>
+            </div>
+
+            {/* Social Engineering Indicators */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--vf-text-muted)' }}>
+                Indikator Rekayasa Sosial Terdeteksi ({messageDetails.indicators?.length || 0}):
+              </h4>
+              <div className="space-y-2">
+                {(messageDetails.indicators || []).map((ind, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3.5 rounded-xl border space-y-1 text-xs"
+                    style={{ backgroundColor: 'var(--vf-surface-muted)', borderColor: 'var(--vf-border)' }}
+                  >
+                    <div className="font-bold flex items-center space-x-2 text-rose-500">
+                      <AlertTriangleIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span>{ind.title || ind.category}</span>
+                    </div>
+                    <p style={{ color: 'var(--vf-text-secondary)', lineHeight: 1.4 }}>{ind.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              className="p-4 rounded-xl border text-xs leading-relaxed space-y-1"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--vf-warning) 10%, transparent)',
+                borderColor: 'color-mix(in srgb, var(--vf-warning) 30%, transparent)',
+              }}
+            >
+              <span className="font-bold block text-amber-600 dark:text-amber-400">Rekomendasi Keamanan:</span>
+              <p style={{ color: 'var(--vf-text-secondary)' }}>{messageDetails.warningMessage}</p>
+            </div>
           </div>
-        </div>
+        ) : null
+      )}
+
+      {/* Dedicated AI Agent Forensics for Suspicious Messages */}
+      {isMessage && (
+        <GeminiAgentCard
+          initialResult={activeResult.geminiAgent}
+          inputType={inputType}
+          subType={subType}
+          text={messageDetails?.text || activeResult.textToAnalyze || ''}
+          url={activeResult.url}
+          articleMetadata={{}}
+          mainClaim={messageDetails?.text?.slice(0, 120)}
+          atomicClaims={[]}
+          existingVerdict={messageDetails?.status || verdict}
+          lang={lang}
+          onOpenApiKeyModal={onOpenApiKeyModal}
+        />
       )}
 
       {/* ============================================================ */}
@@ -598,8 +657,16 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
               borderColor: 'var(--vf-border)',
             }}
           >
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <VerdictBadge verdict={verdict} lang={lang} size="lg" />
+              {activeResult.geminiAgent?.agentVerdict && (
+                <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold">
+                  <SparklesIcon className="w-3.5 h-3.5 text-cyan-300" />
+                  <span>
+                    AI Agent: {activeResult.geminiAgent.agentVerdict === 'TERVERIFIKASI_FAKTUAL' ? 'TERVERIFIKASI FAKTUAL' : activeResult.geminiAgent.agentVerdict} ({activeResult.geminiAgent.confidenceScore}%)
+                  </span>
+                </div>
+              )}
             </div>
 
             {claim && claim.mainClaim && (
@@ -674,8 +741,63 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
             )}
           </div>
 
-          {/* Confidence Meter Card (§27, §28, §29) */}
-          <ConfidenceMeter confidence={confidence} lang={lang} />
+          {/* GOOGLE AI STUDIO (GEMINI FLASH) MACHINE LEARNING AGENT FORENSICS (PROMINENT AT TOP) */}
+          <GeminiAgentCard
+            initialResult={activeResult.geminiAgent}
+            inputType={inputType}
+            subType={subType}
+            text={activeResult.textToAnalyze || claim?.mainClaim || ''}
+            url={sourceAssessment?.url || activeResult.url}
+            articleMetadata={{
+              title: claim?.mainClaim || sourceAssessment?.title,
+              publisher: sourceAssessment?.publisher || sourceAssessment?.domain,
+              domain: sourceAssessment?.domain,
+              author: sourceAssessment?.author,
+              publishedAt: sourceAssessment?.publishedAt,
+            }}
+            mainClaim={claim?.mainClaim}
+            atomicClaims={atomicClaims}
+            existingVerdict={verdict}
+            lang={lang}
+            onOpenApiKeyModal={onOpenApiKeyModal}
+          />
+
+          {/* ARTICLE EXPLANATION & SOURCE SUMMARY (§8, §9, §35) */}
+          {(sourceSummary || articleExplanation) && (
+            <ArticleExplanationCard
+              sourceSummary={sourceSummary}
+              articleExplanation={articleExplanation}
+              lang={lang}
+            />
+          )}
+
+          {/* Confidence Meter Card (§27, §28, §29) with Synthesized AI Confidence */}
+          <ConfidenceMeter
+            confidence={
+              confidence && typeof confidence.score === 'number'
+                ? confidence
+                : activeResult.geminiAgent?.confidenceScore
+                ? {
+                    score: activeResult.geminiAgent.confidenceScore,
+                    band:
+                      activeResult.geminiAgent.confidenceScore >= 75
+                        ? 'high'
+                        : activeResult.geminiAgent.confidenceScore >= 45
+                        ? 'medium'
+                        : 'low',
+                    factors: [
+                      `Analisis forensik model AI ${activeResult.geminiAgent.modelUsed || 'Gemini Flash'} (${activeResult.geminiAgent.confidenceScore}%)`,
+                      `Evaluasi plausibilitas judul: ${activeResult.geminiAgent.headlineAccuracy?.matchesContent ? 'Sesuai dengan isi berita riil' : 'Perlu diwaspadai'}`,
+                      `Tingkat clickbait & framing: ${activeResult.geminiAgent.biasAndRhetoric?.clickbaitRating || 'Rendah'}`,
+                    ],
+                    sourceCoverage: 'Tervalidasi AI Agent (Google AI Studio)',
+                    primarySourcesCount: 1,
+                    independentClustersCount: 1,
+                  }
+                : confidence
+            }
+            lang={lang}
+          />
 
           {/* Navigation Tabs for Deep Evidence */}
           <div className="flex items-center space-x-2 overflow-x-auto pb-1 border-b text-xs font-bold" style={{ borderColor: 'var(--vf-border)' }}>
@@ -749,7 +871,14 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
 
           {/* TAB 2: EVIDENCE LEDGER */}
           {activeSection === 'evidence' && (
-            <EvidenceLedger evidence={gatheredEvidences} lang={lang} />
+            <EvidenceLedger
+              evidenceList={gatheredEvidences}
+              evidence={gatheredEvidences}
+              sources={sources}
+              lang={lang}
+              onSearchMore={handleSearchMore}
+              searchingMore={searchingMore}
+            />
           )}
 
           {/* TAB 3: SOURCES & INDEPENDENT CLUSTERS */}
@@ -796,6 +925,15 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
           )}
         </>
       )}
+
+      {/* ============================================================ */}
+      {/* 10. CONTEXTUAL EDUCATION & OFFICIAL COMPLAINT HUB (§25-§27)  */}
+      {/* ============================================================ */}
+      <ContextualEducationCard
+        education={education}
+        reportResources={reportResources}
+        lang={lang}
+      />
 
       {/* Why This Result Modal */}
       <WhyThisResultModal

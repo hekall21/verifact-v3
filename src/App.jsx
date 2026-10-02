@@ -1,9 +1,8 @@
 /**
  * src/App.jsx
  *
- * Shell aplikasi utama VeriFact ID 4.2.
- * Menghubungkan tema (Dark/Light), bahasa reaktif (ID/EN), navigasi tab,
- * pipeline verifikasi fakta multi-state, dan Official Reporting Hub.
+ * Shell aplikasi utama VeriFact ID 5.0.
+ * Research + Fact Verification + Scam Analysis + Source Intelligence + Security Education Engine.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -18,8 +17,10 @@ import { LiteracyQuiz } from './components/quiz/LiteracyQuiz.jsx';
 import { DigitalLiteracy } from './components/literacy/DigitalLiteracy.jsx';
 import { OfficialReportingHub } from './components/report/OfficialReportingHub.jsx';
 import { MethodologyModal } from './components/methodology/MethodologyModal.jsx';
+import { ApiKeyModal } from './components/common/ApiKeyModal.jsx';
 import { ShieldIcon, CheckCircleIcon } from './components/common/Icons.jsx';
 import { runVerification } from './services/analysisService.js';
+import { getGeminiApiKey, runGeminiAgentAnalysis } from './services/geminiAgentService.js';
 import { t } from './i18n/index.js';
 
 export function App() {
@@ -37,6 +38,7 @@ export function App() {
   const [currentState, setCurrentState] = useState('');
   const [result, setResult] = useState(null);
   const [methodologyOpen, setMethodologyOpen] = useState(false);
+  const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
 
   // Sinkronisasi kelas dark/light ke root HTML
   useEffect(() => {
@@ -83,6 +85,49 @@ export function App() {
         options
       );
 
+      // Jika API Key Google AI Studio tersedia & AI Agent aktif: jalankan analisis mendalam otomatis
+      const apiKey = getGeminiApiKey();
+      const aiEnabled = localStorage.getItem('vf_ai_agent_enabled') !== 'false';
+      if (apiKey && aiEnabled && res && res.ok && res.verdict !== 'NEWS_HOMEPAGE_DETECTED' && res.verdict !== 'IDENTIFIED_SOURCE') {
+        try {
+          setCurrentStep(
+            lang === 'id'
+              ? '✨ AI Agent Google AI Studio sedang melakukan analisis forensik...'
+              : '✨ Google AI Studio Agent running machine learning forensics...'
+          );
+          const aiResult = await runGeminiAgentAnalysis({
+            inputType: res.inputType,
+            subType: res.subType,
+            text: res.textToAnalyze || res.claim?.mainClaim || text,
+            url: res.sourceAssessment?.url || res.url,
+            articleMetadata: {
+              title: res.claim?.mainClaim || res.sourceAssessment?.title,
+              publisher: res.sourceAssessment?.publisher || res.sourceAssessment?.domain,
+              domain: res.sourceAssessment?.domain,
+              author: res.sourceAssessment?.author,
+              publishedAt: res.sourceAssessment?.publishedAt,
+            },
+            mainClaim: res.claim?.mainClaim,
+            atomicClaims: res.atomicClaims || [],
+            existingVerdict: res.verdict,
+            lang,
+          });
+          if (aiResult && aiResult.ok) {
+            res.geminiAgent = aiResult;
+            res.presentationSummary = {
+              ...(res.presentationSummary || {}),
+              aiVerdict: aiResult.agentVerdict,
+              aiConfidence: aiResult.confidenceScore,
+              aiHeadline: aiResult.verdictHeadline,
+              aiSummary: aiResult.executiveSummary,
+              aiModel: aiResult.modelUsed,
+            };
+          }
+        } catch (aiErr) {
+          console.warn('[App] Auto Gemini Agent analysis skipped or failed:', aiErr);
+        }
+      }
+
       // Jeda visual halus agar transisi tahap selesai terasa mulus
       setTimeout(() => {
         setResult(res);
@@ -126,6 +171,7 @@ export function App() {
         theme={theme}
         onToggleTheme={handleToggleTheme}
         onOpenMethodology={() => setMethodologyOpen(true)}
+        onOpenApiKeyModal={() => setApiKeyModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -213,6 +259,7 @@ export function App() {
                 onReset={handleClear}
                 onRetry={() => handleVerify(input)}
                 lang={lang}
+                onOpenApiKeyModal={() => setApiKeyModalOpen(true)}
               />
             )}
           </div>
@@ -251,6 +298,13 @@ export function App() {
       <MethodologyModal
         isOpen={methodologyOpen}
         onClose={() => setMethodologyOpen(false)}
+        lang={lang}
+      />
+
+      {/* Google AI Studio API Key & Model Modal */}
+      <ApiKeyModal
+        isOpen={apiKeyModalOpen}
+        onClose={() => setApiKeyModalOpen(false)}
         lang={lang}
       />
     </div>
