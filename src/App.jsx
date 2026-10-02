@@ -17,7 +17,6 @@ import { LiteracyQuiz } from './components/quiz/LiteracyQuiz.jsx';
 import { DigitalLiteracy } from './components/literacy/DigitalLiteracy.jsx';
 import { OfficialReportingHub } from './components/report/OfficialReportingHub.jsx';
 import { MethodologyModal } from './components/methodology/MethodologyModal.jsx';
-import { ApiKeyModal } from './components/common/ApiKeyModal.jsx';
 import { ShieldIcon, CheckCircleIcon } from './components/common/Icons.jsx';
 import { runVerification } from './services/analysisService.js';
 import { getGeminiApiKey, runGeminiAgentAnalysis } from './services/geminiAgentService.js';
@@ -38,7 +37,6 @@ export function App() {
   const [currentState, setCurrentState] = useState('');
   const [result, setResult] = useState(null);
   const [methodologyOpen, setMethodologyOpen] = useState(false);
-  const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
 
   // Sinkronisasi kelas dark/light ke root HTML
   useEffect(() => {
@@ -171,7 +169,6 @@ export function App() {
         theme={theme}
         onToggleTheme={handleToggleTheme}
         onOpenMethodology={() => setMethodologyOpen(true)}
-        onOpenApiKeyModal={() => setApiKeyModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -259,7 +256,6 @@ export function App() {
                 onReset={handleClear}
                 onRetry={() => handleVerify(input)}
                 lang={lang}
-                onOpenApiKeyModal={() => setApiKeyModalOpen(true)}
               />
             )}
           </div>
@@ -298,13 +294,6 @@ export function App() {
       <MethodologyModal
         isOpen={methodologyOpen}
         onClose={() => setMethodologyOpen(false)}
-        lang={lang}
-      />
-
-      {/* Google AI Studio API Key & Model Modal */}
-      <ApiKeyModal
-        isOpen={apiKeyModalOpen}
-        onClose={() => setApiKeyModalOpen(false)}
         lang={lang}
       />
     </div>

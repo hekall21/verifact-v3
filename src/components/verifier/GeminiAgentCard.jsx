@@ -15,10 +15,8 @@ import {
   CheckCircleIcon,
   RefreshIcon,
   ExternalLinkIcon,
-  KeyIcon,
 } from '../common/Icons.jsx';
 import {
-  getGeminiApiKey,
   getGeminiModel,
   runGeminiAgentAnalysis,
 } from '../../services/geminiAgentService.js';
@@ -34,10 +32,8 @@ export function GeminiAgentCard({
   atomicClaims = [],
   existingVerdict,
   lang = 'id',
-  onOpenApiKeyModal,
 }) {
-  const [apiKeyPresent, setApiKeyPresent] = useState(false);
-  const [activeModel, setActiveModel] = useState('gemini-2.5-flash');
+  const [activeModel, setActiveModel] = useState('gemini-flash-lite-latest');
   const [loading, setLoading] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [agentResult, setAgentResult] = useState(initialResult);
@@ -51,23 +47,15 @@ export function GeminiAgentCard({
   ];
 
   useEffect(() => {
-    const key = getGeminiApiKey();
-    setApiKeyPresent(Boolean(key));
     setActiveModel(getGeminiModel());
     if (initialResult) {
       setAgentResult(initialResult);
-    } else if (key && !agentResult && !loading) {
+    } else if (!agentResult && !loading) {
       handleRunAnalysis();
     }
   }, [initialResult]);
 
   const handleRunAnalysis = async () => {
-    const key = getGeminiApiKey();
-    if (!key) {
-      if (onOpenApiKeyModal) onOpenApiKeyModal();
-      return;
-    }
-
     setLoading(true);
     setErrorMsg(null);
     setCurrentStepIndex(0);
@@ -129,60 +117,7 @@ export function GeminiAgentCard({
     }
   };
 
-  // 1. STATE: API KEY BELUM DIISI
-  if (!apiKeyPresent) {
-    return (
-      <div
-        className="rounded-2xl p-6 border shadow-lg relative overflow-hidden"
-        style={{
-          backgroundColor: 'var(--vf-surface)',
-          borderColor: 'var(--vf-border)',
-        }}
-      >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start space-x-3.5">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-500 flex items-center justify-center text-white shrink-0 shadow-md shadow-indigo-500/20">
-              <SparklesIcon className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-cyan-400">
-                  Google AI Studio Agent
-                </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                  Gemini 2.5 Flash
-                </span>
-              </div>
-              <h3 className="text-base font-bold" style={{ color: 'var(--vf-text)' }}>
-                {lang === 'id'
-                  ? 'Aktifkan Analisis Mendalam Machine Learning'
-                  : 'Enable Deep Machine Learning AI Agent'}
-              </h3>
-              <p className="text-xs max-w-xl leading-relaxed" style={{ color: 'var(--vf-text-secondary)' }}>
-                {lang === 'id'
-                  ? 'Gunakan API Key Google AI Studio gratis Anda untuk mengaktifkan audit forensik klaim mendalam: deteksi bias emosi, evaluasi judul clickbait, uji plausibilitas klaim atomik, dan analisis rekayasa sosial.'
-                  : 'Add your free Google AI Studio API key to run deep forensic claim audits: emotional bias detection, clickbait headline evaluation, atomic claim plausibility, and social engineering forensics.'}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onOpenApiKeyModal}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg shadow-cyan-500/20 transition-all hover:opacity-90 active:scale-95 shrink-0"
-            style={{ backgroundColor: 'var(--vf-primary)' }}
-          >
-            <KeyIcon className="w-4 h-4" />
-            <span>{lang === 'id' ? 'Pasang API Key (Gratis)' : 'Add Free API Key'}</span>
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // 2. STATE: API KEY SUDAH ADA TAPI BELUM DIJALANKAN
+  // STATE: BELUM DIJALANKAN (STANDBY)
   if (!agentResult && !loading) {
     return (
       <div
@@ -215,20 +150,6 @@ export function GeminiAgentCard({
           </div>
 
           <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={onOpenApiKeyModal}
-              title="Pengaturan API Key"
-              className="p-2 rounded-lg text-xs font-medium border hover:opacity-80 transition-all"
-              style={{
-                backgroundColor: 'var(--vf-surface-muted)',
-                borderColor: 'var(--vf-border)',
-                color: 'var(--vf-text-secondary)',
-              }}
-            >
-              <KeyIcon className="w-4 h-4" />
-            </button>
-
             <button
               type="button"
               onClick={handleRunAnalysis}
@@ -333,15 +254,6 @@ export function GeminiAgentCard({
           >
             <RefreshIcon className="w-3.5 h-3.5" />
             <span>{lang === 'id' ? 'Analisis Ulang' : 'Re-analyze'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onOpenApiKeyModal}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white border border-white/5 hover:bg-white/10"
-            title="Ganti Model / Kunci"
-          >
-            <KeyIcon className="w-4 h-4" />
           </button>
         </div>
       </div>

@@ -49,7 +49,7 @@ import { buildShareableReportUrl } from '../../utils/reportIntegrity.js';
 import { searchMoreEvidence } from '../../services/analysisService.js';
 import { t } from '../../i18n/index.js';
 
-export function VerificationResult({ result = {}, onReset, onRetry, lang = 'id', onOpenApiKeyModal }) {
+export function VerificationResult({ result = {}, onReset, onRetry, lang = 'id' }) {
   const [activeResult, setActiveResult] = useState(result);
   const [searchingMore, setSearchingMore] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -199,21 +199,6 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
         </div>
 
         <div className="flex items-center space-x-2">
-          {onOpenApiKeyModal && (
-            <button
-              type="button"
-              onClick={onOpenApiKeyModal}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all shadow-sm border hover:opacity-85 text-cyan-400"
-              style={{
-                backgroundColor: 'color-mix(in srgb, var(--vf-primary) 10%, transparent)',
-                borderColor: 'color-mix(in srgb, var(--vf-primary) 30%, transparent)',
-              }}
-            >
-              <SparklesIcon className="w-3.5 h-3.5 text-cyan-400" />
-              <span>AI Studio Agent</span>
-            </button>
-          )}
-
           {!isHomepage && (
             <button
               type="button"
@@ -640,7 +625,6 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
           atomicClaims={[]}
           existingVerdict={messageDetails?.status || verdict}
           lang={lang}
-          onOpenApiKeyModal={onOpenApiKeyModal}
         />
       )}
 
@@ -759,7 +743,6 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
             atomicClaims={atomicClaims}
             existingVerdict={verdict}
             lang={lang}
-            onOpenApiKeyModal={onOpenApiKeyModal}
           />
 
           {/* ARTICLE EXPLANATION & SOURCE SUMMARY (§8, §9, §35) */}

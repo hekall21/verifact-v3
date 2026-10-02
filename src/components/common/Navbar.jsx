@@ -5,9 +5,8 @@
  * penukar bahasa reaktif (ID/EN), dan pembuka modal metodologi.
  */
 
-import React, { useState, useEffect } from 'react';
-import { ShieldIcon, SunIcon, MoonIcon, GlobeIcon, FileTextIcon, SparklesIcon } from './Icons.jsx';
-import { getGeminiApiKey } from '../../services/geminiAgentService.js';
+import React, { useState } from 'react';
+import { ShieldIcon, SunIcon, MoonIcon, GlobeIcon, FileTextIcon } from './Icons.jsx';
 import { t } from '../../i18n/index.js';
 
 export function Navbar({
@@ -18,14 +17,8 @@ export function Navbar({
   theme,
   onToggleTheme,
   onOpenMethodology,
-  onOpenApiKeyModal,
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [hasApiKey, setHasApiKey] = useState(false);
-
-  useEffect(() => {
-    setHasApiKey(Boolean(getGeminiApiKey()));
-  }, []);
 
   const navItems = [
     { key: 'verifier', label: t(lang, 'nav.verifier') },
