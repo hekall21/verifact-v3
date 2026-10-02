@@ -17,6 +17,7 @@ import { LiteracyQuiz } from './components/quiz/LiteracyQuiz.jsx';
 import { DigitalLiteracy } from './components/literacy/DigitalLiteracy.jsx';
 import { OfficialReportingHub } from './components/report/OfficialReportingHub.jsx';
 import { MethodologyModal } from './components/methodology/MethodologyModal.jsx';
+import { VeriFactLogo, VeriFactEmblem } from './components/common/VeriFactLogo.jsx';
 import { ShieldIcon, CheckCircleIcon } from './components/common/Icons.jsx';
 import { runVerification } from './services/analysisService.js';
 import { getGeminiApiKey, runGeminiAgentAnalysis } from './services/geminiAgentService.js';
@@ -178,6 +179,23 @@ export function App() {
             {/* Hero Section (§33) */}
             {!result && !loading && (
               <div className="text-center space-y-4 max-w-3xl mx-auto py-6 sm:py-10 vf-fade-up">
+                {/* Hero Logo Emblem */}
+                <div className="flex justify-center pb-1">
+                  <div className="relative group cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                    <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-cyan-500/25 via-indigo-500/25 to-purple-500/25 blur-xl opacity-75 group-hover:opacity-100 transition duration-700 pointer-events-none" />
+                    <div
+                      className="relative p-3.5 rounded-2xl border shadow-xl flex items-center justify-center transition-all duration-300 group-hover:scale-105"
+                      style={{
+                        background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.85) 100%)',
+                        borderColor: 'rgba(99, 102, 241, 0.35)',
+                        boxShadow: '0 8px 30px -4px rgba(6, 182, 212, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                      }}
+                    >
+                      <VeriFactEmblem size={52} idSuffix="hero" />
+                    </div>
+                  </div>
+                </div>
+
                 <div
                   className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm"
                   style={{
@@ -186,7 +204,7 @@ export function App() {
                     border: '1px solid color-mix(in srgb, var(--vf-primary) 28%, transparent)',
                   }}
                 >
-                  <ShieldIcon className="w-3.5 h-3.5" />
+                  <VeriFactEmblem size={14} idSuffix="pill" />
                   <span>{t(lang, 'app.badge')} • Evidence Intelligence</span>
                 </div>
 

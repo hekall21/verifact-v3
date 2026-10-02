@@ -6,7 +6,8 @@
  */
 
 import React from 'react';
-import { ShieldIcon, ExternalLinkIcon } from './Icons.jsx';
+import { ExternalLinkIcon } from './Icons.jsx';
+import { VeriFactLogo } from './VeriFactLogo.jsx';
 import { t } from '../../i18n/index.js';
 
 export function Footer({ lang, onOpenMethodology }) {
@@ -21,19 +22,7 @@ export function Footer({ lang, onOpenMethodology }) {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand Info */}
           <div className="md:col-span-2 space-y-3">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                style={{
-                  backgroundColor: 'color-mix(in srgb, var(--vf-primary) 15%, transparent)',
-                  color: 'var(--vf-primary)',
-                }}
-              >
-                <ShieldIcon className="w-5 h-5" />
-              </div>
-              <span className="font-bold text-base tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--vf-text)' }}>
-                VeriFact<span style={{ color: 'var(--vf-primary)' }}>ID</span>
-              </span>
-            </div>
+            <VeriFactLogo variant="full" showTagline={false} />
             <p className="text-xs leading-relaxed max-w-md" style={{ color: 'var(--vf-text-muted)' }}>
               {t(lang, 'app.subtitle')}
             </p>

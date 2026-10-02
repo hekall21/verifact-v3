@@ -6,7 +6,8 @@
  */
 
 import React from 'react';
-import { XIcon, ShieldIcon, CheckCircleIcon } from '../common/Icons.jsx';
+import { XIcon, CheckCircleIcon } from '../common/Icons.jsx';
+import { VeriFactEmblem } from '../common/VeriFactLogo.jsx';
 import { VERDICT_ORDER } from '../../utils/verdict.js';
 import { VerdictBadge } from '../verifier/VerdictBadge.jsx';
 import { t } from '../../i18n/index.js';
@@ -33,8 +34,13 @@ export function MethodologyModal({ isOpen, onClose, lang = 'id' }) {
         {/* Header */}
         <div className="flex items-center justify-between border-b pb-4" style={{ borderColor: 'var(--vf-border)' }}>
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-500/10 text-blue-500">
-              <ShieldIcon className="w-6 h-6" />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center p-1"
+              style={{
+                background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)',
+                border: '1px solid rgba(99, 102, 241, 0.3)',
+              }}
+            >
+              <VeriFactEmblem size={26} idSuffix="methodology" />
             </div>
             <div>
               <h3 className="text-lg font-bold" style={{ fontFamily: 'var(--font-display)', color: 'var(--vf-text)' }}>

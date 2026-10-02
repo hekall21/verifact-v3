@@ -58,6 +58,22 @@ for (const scriptTag of scriptMatches) {
   }
 }
 
+// Temukan dan inline favicon SVG
+const faviconMatches = html.match(/<link[^>]+rel="icon"[^>]+href="([^"]+)"[^>]*>/gi) || [];
+for (const favTag of faviconMatches) {
+  const hrefMatch = favTag.match(/href="([^"]+)"/i);
+  if (hrefMatch && hrefMatch[1]) {
+    const favRelPath = hrefMatch[1].replace(/^\//, '');
+    const favFullPath = path.join(rootDir, 'public', favRelPath);
+    if (fs.existsSync(favFullPath)) {
+      const favContent = fs.readFileSync(favFullPath, 'utf8');
+      const base64Fav = Buffer.from(favContent).toString('base64');
+      html = html.replace(favTag, `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,${base64Fav}" />`);
+      console.log(`[build-offline] Inlined Favicon: ${favRelPath}`);
+    }
+  }
+}
+
 // Tulis ke dist/standalone.html dan index.offline.html di root
 const targetOfflineDist = path.join(distDir, 'standalone.html');
 fs.writeFileSync(targetOfflineDist, html, 'utf8');

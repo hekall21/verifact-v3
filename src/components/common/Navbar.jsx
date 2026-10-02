@@ -7,6 +7,7 @@
 
 import React, { useState } from 'react';
 import { ShieldIcon, SunIcon, MoonIcon, GlobeIcon, FileTextIcon } from './Icons.jsx';
+import { VeriFactLogo } from './VeriFactLogo.jsx';
 import { t } from '../../i18n/index.js';
 
 export function Navbar({
@@ -44,36 +45,11 @@ export function Navbar({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Brand */}
-          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleNavClick('verifier')}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-md transition-transform hover:scale-105"
-              style={{
-                backgroundColor: 'var(--vf-surface)',
-                border: '1px solid var(--vf-border-strong)',
-                color: 'var(--vf-primary)',
-              }}
-            >
-              <ShieldIcon className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="font-bold text-lg tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--vf-text)' }}>
-                  VeriFact<span style={{ color: 'var(--vf-primary)' }}>ID</span>
-                </span>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
-                  style={{
-                    backgroundColor: 'color-mix(in srgb, var(--vf-primary) 15%, transparent)',
-                    color: 'var(--vf-primary)',
-                    border: '1px solid color-mix(in srgb, var(--vf-primary) 30%, transparent)',
-                  }}
-                >
-                  v5.0
-                </span>
-              </div>
-              <p className="text-[11px] leading-none hidden sm:block" style={{ color: 'var(--vf-text-muted)' }}>
-                {t(lang, 'app.tagline')}
-              </p>
-            </div>
-          </div>
+          <VeriFactLogo
+            variant="full"
+            onClick={() => handleNavClick('verifier')}
+            className="cursor-pointer"
+          />
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-1">
