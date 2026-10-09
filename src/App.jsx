@@ -91,8 +91,8 @@ export function App() {
         try {
           setCurrentStep(
             lang === 'id'
-              ? '✨ AI Agent Google AI Studio sedang melakukan analisis forensik...'
-              : '✨ Google AI Studio Agent running machine learning forensics...'
+              ? 'Sedang menjalankan analisis forensik semantik mendalam...'
+              : 'Running deep semantic forensic analysis...'
           );
           const aiResult = await runGeminiAgentAnalysis({
             inputType: res.inputType,

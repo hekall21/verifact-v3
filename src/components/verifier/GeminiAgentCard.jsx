@@ -135,16 +135,16 @@ export function GeminiAgentCard({
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="text-sm sm:text-base font-bold" style={{ color: 'var(--vf-text)' }}>
-                  ✨ Google AI Studio Agent Deep Analysis
+                  {lang === 'id' ? '✨ Audit Forensik Semantik Mendalam' : '✨ Deep Semantic Forensic Audit'}
                 </h3>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  {activeModel}
+                  {lang === 'id' ? 'Forensik Lanjutan' : 'Advanced Forensics'}
                 </span>
               </div>
               <p className="text-xs" style={{ color: 'var(--vf-text-muted)' }}>
                 {lang === 'id'
-                  ? 'Audit forensik semantik multi-sudut pandang menggunakan model Gemini.'
-                  : 'Multi-perspective semantic forensic audit powered by Gemini.'}
+                  ? 'Evaluasi multi-sudut pandang atas integritas klaim, clickbait, dan rekayasa narasi.'
+                  : 'Multi-perspective evaluation of claim integrity, clickbait, and narrative engineering.'}
               </p>
             </div>
           </div>
@@ -157,7 +157,7 @@ export function GeminiAgentCard({
               style={{ backgroundColor: 'var(--vf-primary)' }}
             >
               <SparklesIcon className="w-4 h-4" />
-              <span>{lang === 'id' ? 'Jalankan Analisis AI Agent' : 'Run AI Agent Analysis'}</span>
+              <span>{lang === 'id' ? 'Jalankan Analisis Forensik' : 'Run Forensic Analysis'}</span>
             </button>
           </div>
         </div>
@@ -188,7 +188,7 @@ export function GeminiAgentCard({
           </div>
           <div>
             <h3 className="text-base font-bold" style={{ color: 'var(--vf-text)' }}>
-              {lang === 'id' ? 'AI Agent Sedang Menganalisis...' : 'AI Agent Analyzing...'}
+              {lang === 'id' ? 'Sistem Forensik Sedang Menganalisis...' : 'Forensic System Analyzing...'}
             </h3>
             <p className="text-xs font-mono text-cyan-400">
               {steps[currentStepIndex]}
@@ -229,14 +229,14 @@ export function GeminiAgentCard({
           <div>
             <div className="flex items-center space-x-2">
               <h3 className="text-base font-bold" style={{ color: 'var(--vf-text)' }}>
-                Google AI Studio Agent Report
+                {lang === 'id' ? 'Laporan Forensik Semantik & Plausibilitas' : 'Semantic Forensics & Plausibility Audit'}
               </h3>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                {agentResult.modelUsed || activeModel}
+                {lang === 'id' ? 'Audit Lanjutan' : 'Deep Audit'}
               </span>
             </div>
             <p className="text-xs" style={{ color: 'var(--vf-text-muted)' }}>
-              {lang === 'id' ? 'Forensik Semantik & Evaluasi Plausibilitas Klaim' : 'Semantic Forensics & Claim Plausibility Audit'}
+              {lang === 'id' ? 'Evaluasi Forensik Objektif & Verifikasi Klaim Multi-Dimensi' : 'Multi-Dimensional Claim Verification & Forensics'}
             </p>
           </div>
         </div>

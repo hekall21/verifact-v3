@@ -68,8 +68,10 @@ npm test
 # 3. Jalankan server pengembang lokal
 npm run dev
 
-# 4. (Opsional) Jalankan backend stub API
-npm run server
+# 4. (Opsional) Konfigurasi Modul Forensik Semantik AI
+# Salin template .env.example menjadi .env untuk menambahkan API Key Google AI Studio:
+# cp .env.example .env (masukkan VITE_GEMINI_API_KEY=...)
+# Catatan: Jika tidak dikonfigurasi, seluruh fitur inti verifikasi fakta tetap berjalan 100% mandiri.
 ```
 Akses aplikasi melalui peramban di `http://localhost:5173`.
 

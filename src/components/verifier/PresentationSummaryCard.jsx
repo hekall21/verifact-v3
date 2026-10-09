@@ -212,7 +212,7 @@ export function PresentationSummaryCard({ result = {}, lang = 'id' }) {
             <div className="flex items-center space-x-2">
               <span className="text-sm">✨</span>
               <span className="font-bold text-xs uppercase tracking-wider text-cyan-400 font-mono">
-                Google AI Studio Forensic Agent ({aiAgent.modelUsed || 'Gemini'})
+                VeriFact Forensic Intelligence Engine
               </span>
             </div>
             <div className="flex items-center space-x-2">

@@ -6,14 +6,8 @@
  * dan rekayasa sosial menggunakan model Gemini dari Google AI Studio.
  */
 
-const _K_DATA = 'QVEuQWI4Uk42SVU5Q0hiRExkbWhPWmZKWDNjWWtWWks5QXJWQjlRZjRJMHhJcG5JUVV4aVE=';
 export const BUILTIN_DEFAULT_KEY =
-  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) ||
-  (typeof atob === 'function'
-    ? atob(_K_DATA)
-    : typeof Buffer !== 'undefined'
-    ? Buffer.from(_K_DATA, 'base64').toString('utf8')
-    : '');
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) || '';
 const STORAGE_KEY_API_KEY = 'vf_gemini_api_key';
 const STORAGE_KEY_MODEL = 'vf_gemini_model';
 const DEFAULT_MODEL = 'gemini-flash-lite-latest';
@@ -55,11 +49,11 @@ function storageRemove(key) {
   memoryStore.delete(key);
 }
 
-// Auto-initialize browser storage to user's built-in key if empty
+// Auto-initialize browser storage to default key only if provided via environment
 try {
   if (typeof localStorage !== 'undefined') {
     const current = localStorage.getItem(STORAGE_KEY_API_KEY);
-    if (!current || current.trim().length === 0) {
+    if ((!current || current.trim().length === 0) && BUILTIN_DEFAULT_KEY) {
       localStorage.setItem(STORAGE_KEY_API_KEY, BUILTIN_DEFAULT_KEY);
     }
   }
@@ -69,19 +63,14 @@ try {
  * Mengambil API Key yang tersimpan di browser atau default terintegrasi
  */
 export function getGeminiApiKey() {
+  const envKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) || '';
+  if (envKey && envKey.trim().length > 0) return envKey.trim();
+
   const stored = storageGet(STORAGE_KEY_API_KEY);
-  if (stored !== null && stored !== undefined) {
-    if (stored.trim().length > 0) return stored.trim();
-    // If running in browser and stored is empty string, auto-heal to BUILTIN_DEFAULT_KEY
-    if (typeof localStorage !== 'undefined') {
-      try {
-        localStorage.setItem(STORAGE_KEY_API_KEY, BUILTIN_DEFAULT_KEY);
-      } catch {}
-      return BUILTIN_DEFAULT_KEY;
-    }
-    return '';
+  if (stored !== null && stored !== undefined && stored.trim().length > 0) {
+    return stored.trim();
   }
-  return BUILTIN_DEFAULT_KEY;
+  return BUILTIN_DEFAULT_KEY || '';
 }
 
 /**

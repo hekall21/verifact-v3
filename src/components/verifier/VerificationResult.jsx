@@ -647,7 +647,7 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
                 <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold">
                   <SparklesIcon className="w-3.5 h-3.5 text-cyan-300" />
                   <span>
-                    AI Agent: {activeResult.geminiAgent.agentVerdict === 'TERVERIFIKASI_FAKTUAL' ? 'TERVERIFIKASI FAKTUAL' : activeResult.geminiAgent.agentVerdict} ({activeResult.geminiAgent.confidenceScore}%)
+                    {lang === 'id' ? 'Forensik Semantik' : 'Semantic Forensics'}: {activeResult.geminiAgent.agentVerdict === 'TERVERIFIKASI_FAKTUAL' ? 'TERVERIFIKASI FAKTUAL' : activeResult.geminiAgent.agentVerdict} ({activeResult.geminiAgent.confidenceScore}%)
                   </span>
                 </div>
               )}

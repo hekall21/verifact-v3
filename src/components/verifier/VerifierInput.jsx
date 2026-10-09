@@ -230,74 +230,10 @@ export function VerifierInput({
           />
         </div>
 
-        {/* ============================================================ */}
-        {/* 3. DIRECT EMBEDDED AI AGENT STATUS (SEAMLESS & SECURE)        */}
-        {/* ============================================================ */}
-        <div
-          className="rounded-xl p-2.5 border text-xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
-          style={{
-            backgroundColor: 'var(--vf-surface-muted)',
-            borderColor: 'var(--vf-border)',
-          }}
-        >
-          <div className="flex items-center space-x-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-500 flex items-center justify-center text-white shrink-0 shadow-sm shadow-cyan-500/20">
-              <SparklesIcon className="w-4 h-4" />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center space-x-1.5 cursor-pointer font-bold text-cyan-400 select-none">
-                <input
-                  type="checkbox"
-                  checked={aiAgentEnabled}
-                  onChange={(e) => {
-                    setAiAgentEnabled(e.target.checked);
-                    localStorage.setItem('vf_ai_agent_enabled', String(e.target.checked));
-                  }}
-                  className="rounded text-cyan-500 focus:ring-cyan-500 w-3.5 h-3.5"
-                />
-                <span>AI Agent Terintegrasi</span>
-              </label>
-
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                ● Aktif Otomatis
-              </span>
-
-              <span className="text-[11px]" style={{ color: 'var(--vf-text-muted)' }}>
-                Model:
-              </span>
-              <select
-                value={selectedModel}
-                onChange={(e) => {
-                  setSelectedModel(e.target.value);
-                  setGeminiModel(e.target.value);
-                }}
-                className="px-2 py-0.5 rounded-lg border text-[11px] font-mono focus:outline-none cursor-pointer"
-                style={{
-                  backgroundColor: 'var(--vf-bg)',
-                  borderColor: 'var(--vf-border)',
-                  color: 'var(--vf-text)',
-                }}
-              >
-                {GEMINI_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name.split(' (')[0]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="text-[11px] flex items-center space-x-1.5" style={{ color: 'var(--vf-text-muted)' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span>Forensik Machine Learning URL & Berita</span>
-          </div>
-        </div>
-
-        {/* 4. Action Button & Shortcut */}
+        {/* 3. Action Button & Shortcut */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1 px-1">
           <div className="text-[11px]" style={{ color: 'var(--vf-text-muted)' }}>
-            Tekan <kbd className="px-1.5 py-0.5 rounded border text-[10px] font-mono bg-slate-500/10 border-slate-500/30">Enter ↵</kbd> untuk mulai analisis
+            Tekan <kbd className="px-1.5 py-0.5 rounded border text-[10px] font-mono bg-slate-500/10 border-slate-500/30">Enter ↵</kbd> untuk mulai verifikasi
           </div>
 
           <div className="flex items-center space-x-2 self-end sm:self-auto">
@@ -311,22 +247,14 @@ export function VerifierInput({
                 <>
                   <RefreshIcon className="w-4 h-4 vf-spin" />
                   <span>
-                    {aiAgentEnabled
-                      ? (lang === 'id' ? 'Menganalisis Faktual + AI Agent...' : 'Analyzing Facts + AI Agent...')
-                      : (lang === 'id' ? 'Menganalisis Bukti...' : 'Analyzing Evidence...')}
+                    {lang === 'id' ? 'Memverifikasi Faktual...' : 'Verifying Facts...'}
                   </span>
                 </>
               ) : (
                 <>
-                  {aiAgentEnabled ? (
-                    <SparklesIcon className="w-4 h-4 text-cyan-300" />
-                  ) : (
-                    <SearchIcon className="w-4 h-4" />
-                  )}
+                  <SearchIcon className="w-4 h-4" />
                   <span>
-                    {aiAgentEnabled
-                      ? (lang === 'id' ? 'Analisis Sekarang (+ AI Agent)' : 'Analyze Now (+ AI Agent)')
-                      : (lang === 'id' ? 'Analisis Sekarang' : 'Analyze Now')}
+                    {lang === 'id' ? 'Verifikasi Sekarang' : 'Verify Now'}
                   </span>
                 </>
               )}
