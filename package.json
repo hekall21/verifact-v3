@@ -14,8 +14,11 @@
     "verify": "npm run test && npm run build && npm run bundle:offline"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
+    "framer-motion": "^14.1.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",

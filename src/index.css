@@ -3,15 +3,15 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Newsreader', 'Source Serif 4', Georgia, serif;
   --font-display: 'Space Grotesk', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 /*
   Token semantik dua tema. Semua komponen memakai var(--vf-*) sehingga
-  pergantian dark/light tidak pernah menghasilkan teks tak terlihat
-  (test case 8 pada master prompt).
+  pergantian dark/light tidak pernah menghasilkan teks tak terlihat.
 */
 :root,
 .light {
@@ -24,38 +24,38 @@
   --vf-text: #0f172a;
   --vf-text-secondary: #475569;
   --vf-text-muted: #64748b;
-  --vf-primary: #4f46e5;
-  --vf-primary-text: #4338ca;
-  --vf-accent: #0284c7;
-  --vf-fact: #059669;
+  --vf-primary: #6355d8;
+  --vf-primary-text: #4f42c2;
+  --vf-accent: #15803d;
+  --vf-fact: #16a34a;
   --vf-partly: #d97706;
   --vf-misleading: #ea580c;
   --vf-hoax: #dc2626;
   --vf-unproven: #64748b;
   --vf-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-  --vf-ring: rgba(79, 70, 229, 0.2);
+  --vf-ring: rgba(99, 85, 216, 0.2);
 }
 
 .dark {
-  --vf-bg: #090a0f;
-  --vf-bg-elevated: #0f121d;
-  --vf-surface: #131724;
-  --vf-surface-muted: #191e30;
-  --vf-border: rgba(255, 255, 255, 0.08);
-  --vf-border-strong: rgba(255, 255, 255, 0.15);
-  --vf-text: #f8fafc;
-  --vf-text-secondary: #94a3b8;
-  --vf-text-muted: #64748b;
-  --vf-primary: #6366f1;
-  --vf-primary-text: #818cf8;
-  --vf-accent: #38bdf8;
-  --vf-fact: #10b981;
+  --vf-bg: #0b1020;
+  --vf-bg-elevated: #0f162c;
+  --vf-surface: #121a34;
+  --vf-surface-muted: #172140;
+  --vf-border: rgba(255, 255, 255, 0.07);
+  --vf-border-strong: rgba(255, 255, 255, 0.14);
+  --vf-text: #f1f3f5;
+  --vf-text-secondary: #9aa4b8;
+  --vf-text-muted: #6b778d;
+  --vf-primary: #7c6cf2;
+  --vf-primary-text: #9d91f8;
+  --vf-accent: #21b78a;
+  --vf-fact: #21b78a;
   --vf-partly: #f59e0b;
   --vf-misleading: #f97316;
-  --vf-hoax: #ef4444;
-  --vf-unproven: #64748b;
+  --vf-hoax: #e85d5d;
+  --vf-unproven: #6b778d;
   --vf-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 20px 35px -10px rgba(0, 0, 0, 0.6);
-  --vf-ring: rgba(99, 102, 241, 0.25);
+  --vf-ring: rgba(124, 108, 242, 0.25);
 }
 
 * {

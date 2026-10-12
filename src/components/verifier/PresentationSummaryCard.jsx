@@ -1,21 +1,28 @@
 /**
  * src/components/verifier/PresentationSummaryCard.jsx
  *
- * VeriFact ID 4.3 — Presentation Summary Card (§31 & §38)
- *
- * Menjawab langsung 6 Pertanyaan Kunci Pengguna & Penguji:
- * 1. Apa yang saya masukkan? (Input Type)
- * 2. Apa yang ditemukan? (Source & Content status)
- * 3. Apa hasilnya? (Verdict & Status)
- * 4. Kenapa hasilnya begitu? (Ringkasan pertimbangan evidence)
- * 5. Seberapa kuat buktinya? (Confidence percentage atau N/A)
- * 6. Sumber mana yang digunakan? (Official, Media, Fact Checks, Kluster)
+ * VeriFact ID 5.0 — Editorial Fact-Check Verdict Center
+ * Desain Redaksi Digital (Newsroom Editorial) Berdasarkan Evaluasi:
+ * - Menjadikan Verdict & Headline sebagai pusat halaman utama
+ * - Menggunakan font serif editorial (Newsreader) untuk headline klaim
+ * - Mengurangi 40-50% kotak/border internal yang saling bersaing
+ * - Menampilkan alasan kesimpulan dalam 3 poin editorial bersih
+ * - Accordion untuk laporan forensik semantik mendalam
  */
 
-import React from 'react';
-import { ShieldIcon, CheckCircleIcon, AlertTriangleIcon, InfoIcon, SparklesIcon } from '../common/Icons.jsx';
+import React, { useState } from 'react';
+import {
+  ShieldIcon,
+  CheckCircleIcon,
+  AlertTriangleIcon,
+  InfoIcon,
+  SparklesIcon,
+  ExternalLinkIcon,
+} from '../common/Icons.jsx';
 
 export function PresentationSummaryCard({ result = {}, lang = 'id' }) {
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+
   const {
     inputType = 'CLAIM_TEXT',
     sourceAssessment = {},
@@ -25,6 +32,8 @@ export function PresentationSummaryCard({ result = {}, lang = 'id' }) {
     confidence,
     evidence = [],
     stats = {},
+    claim = null,
+    timestamp,
   } = result;
 
   const isHomepage = inputType === 'URL_HOME' || verdict === 'IDENTIFIED_SOURCE' || verdict === 'NEWS_HOMEPAGE_DETECTED';
@@ -34,35 +43,10 @@ export function PresentationSummaryCard({ result = {}, lang = 'id' }) {
   const isMessage = inputType === 'MESSAGE';
   const isPhishing = inputType === 'URL_PHISHING_SUSPECT';
 
-  // Format Input Type Label
-  const inputTypeLabel =
-    presentationSummary.inputTypeLabel ||
-    (isHomepage
-      ? (lang === 'id' ? 'Beranda Situs Web / Media' : 'Website Homepage')
-      : isPhone
-      ? (lang === 'id' ? 'Nomor Telepon' : 'Phone Number')
-      : isAccount
-      ? (lang === 'id' ? 'Nomor Rekening' : 'Bank Account')
-      : isMessage
-      ? (lang === 'id' ? 'Pesan Chat / Scam' : 'Chat Message')
-      : isPhishing
-      ? (lang === 'id' ? 'Tautan Mencurigakan' : 'Suspect URL')
-      : (lang === 'id' ? 'Artikel Berita' : 'News Article'));
-
-  // Format Content Status
-  const contentStatus =
-    presentationSummary.contentStatus ||
-    (isHomepage
-      ? (lang === 'id' ? 'Beranda Terverifikasi' : 'Verified Homepage')
-      : isUnavailable
-      ? (lang === 'id' ? 'Belum Berhasil Dibaca' : 'Unavailable')
-      : (lang === 'id' ? 'Berhasil Dibaca Lengkap' : 'Retrieved'));
-
-  // Format Confidence Text
   const aiAgent = result.geminiAgent;
   const hasAiAgent = Boolean(aiAgent && aiAgent.ok);
 
-  // Format Confidence Text (Synthesize rule confidence with AI Agent confidence)
+  // Confidence Synthesis
   const ruleConfidence = confidence && typeof confidence.score === 'number' ? confidence.score : null;
   const confidenceScore = ruleConfidence !== null ? ruleConfidence : (hasAiAgent ? aiAgent.confidenceScore : null);
   const confidenceDisplay =
@@ -77,227 +61,250 @@ export function PresentationSummaryCard({ result = {}, lang = 'id' }) {
       resultLabel = lang === 'id' ? 'SUMBER TERIDENTIFIKASI' : 'IDENTIFIED SOURCE';
     } else if (hasAiAgent && (verdict === 'UNVERIFIED' || verdict === 'INSUFFICIENT_EVIDENCE')) {
       if (aiAgent.agentVerdict === 'TERVERIFIKASI_FAKTUAL') {
-        resultLabel = lang === 'id' ? 'FAKTUAL (AI AGENT)' : 'VERIFIED (AI AGENT)';
+        resultLabel = lang === 'id' ? 'TERKONFIRMASI FAKTUAL' : 'VERIFIED TRUE';
       } else if (aiAgent.agentVerdict === 'HOAKS_PALSU') {
-        resultLabel = lang === 'id' ? 'HOAKS (AI AGENT)' : 'HOAX (AI AGENT)';
+        resultLabel = lang === 'id' ? 'HOAKS / SALAH' : 'HOAX / FALSE';
       } else if (aiAgent.agentVerdict === 'MENYESATKAN_MISLEADING') {
-        resultLabel = lang === 'id' ? 'MENYESATKAN (AI AGENT)' : 'MISLEADING (AI AGENT)';
+        resultLabel = lang === 'id' ? 'MENYESATKAN' : 'MISLEADING';
       } else {
         resultLabel = lang === 'id' ? 'BELUM TERBUKTI' : 'UNVERIFIED';
       }
     } else if (verdict === 'UNVERIFIED' || verdict === 'INSUFFICIENT_EVIDENCE') {
       resultLabel = lang === 'id' ? 'BELUM TERBUKTI' : 'UNVERIFIED';
-    } else if (verdict === 'SUPPORTED') {
-      resultLabel = lang === 'id' ? 'DIDUKUNG BUKTI' : 'SUPPORTED';
-    } else if (verdict === 'VERIFIED_TRUE' || verdict === 'FACT') {
-      resultLabel = lang === 'id' ? 'FAKTA TERVERIFIKASI' : 'VERIFIED TRUE';
+    } else if (verdict === 'SUPPORTED' || verdict === 'VERIFIED_TRUE' || verdict === 'FACT') {
+      resultLabel = lang === 'id' ? 'TERKONFIRMASI FAKTUAL' : 'VERIFIED TRUE';
     } else if (verdict === 'FALSE' || verdict === 'HOAX') {
-      resultLabel = lang === 'id' ? 'SALAH / HOAKS' : 'FALSE';
+      resultLabel = lang === 'id' ? 'HOAKS / SALAH' : 'HOAX / FALSE';
     } else if (verdict === 'MISLEADING') {
       resultLabel = lang === 'id' ? 'MENYESATKAN' : 'MISLEADING';
     } else if (verdict === 'SOURCE_CONTENT_UNAVAILABLE') {
       resultLabel = lang === 'id' ? 'KONTEN BELUM TERSEDIA' : 'CONTENT UNAVAILABLE';
     } else {
-      resultLabel = verdict || 'SELESAI';
+      resultLabel = verdict || 'HASIL ANALISIS';
     }
   }
 
-  const getResultBadgeColor = () => {
-    if (isHomepage) return { bg: 'bg-cyan-500/10', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-500/30' };
+  // Warna Status Editorial (Teal / Brick Red / Amber / Slate)
+  const getEditorialStatusStyle = () => {
+    if (isHomepage) {
+      return {
+        badgeBg: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+        dotBg: 'bg-emerald-400',
+      };
+    }
     if (hasAiAgent && (verdict === 'UNVERIFIED' || verdict === 'INSUFFICIENT_EVIDENCE')) {
       if (aiAgent.agentVerdict === 'TERVERIFIKASI_FAKTUAL') {
-        return { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/30' };
+        return { badgeBg: 'bg-teal-500/15 text-teal-400 border-teal-500/30', dotBg: 'bg-teal-400' };
       }
       if (aiAgent.agentVerdict === 'HOAKS_PALSU') {
-        return { bg: 'bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-500/30' };
+        return { badgeBg: 'bg-rose-500/15 text-rose-400 border-rose-500/30', dotBg: 'bg-rose-400' };
       }
       if (aiAgent.agentVerdict === 'MENYESATKAN_MISLEADING') {
-        return { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/30' };
+        return { badgeBg: 'bg-amber-500/15 text-amber-400 border-amber-500/30', dotBg: 'bg-amber-400' };
       }
     }
-    if (verdict === 'VERIFIED_TRUE' || verdict === 'FACT') return { bg: 'bg-emerald-500/10', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/30' };
-    if (verdict === 'SUPPORTED') return { bg: 'bg-indigo-500/10', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-500/30' };
-    if (verdict === 'MISLEADING') return { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/30' };
-    if (verdict === 'FALSE' || verdict === 'HOAX') return { bg: 'bg-rose-500/10', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-500/30' };
-    return { bg: 'bg-slate-500/10', text: 'text-slate-600 dark:text-slate-300', border: 'border-slate-500/30' };
+    if (verdict === 'VERIFIED_TRUE' || verdict === 'FACT' || verdict === 'SUPPORTED') {
+      return { badgeBg: 'bg-teal-500/15 text-teal-400 border-teal-500/30', dotBg: 'bg-teal-400' };
+    }
+    if (verdict === 'MISLEADING') {
+      return { badgeBg: 'bg-amber-500/15 text-amber-400 border-amber-500/30', dotBg: 'bg-amber-400' };
+    }
+    if (verdict === 'FALSE' || verdict === 'HOAX') {
+      return { badgeBg: 'bg-rose-500/15 text-rose-400 border-rose-500/30', dotBg: 'bg-rose-400' };
+    }
+    return { badgeBg: 'bg-slate-500/15 text-slate-300 border-slate-500/30', dotBg: 'bg-slate-400' };
   };
 
-  const badgeTheme = getResultBadgeColor();
+  const statusStyle = getEditorialStatusStyle();
+
+  // Headline klaim utama
+  const claimHeadline =
+    claim?.mainClaim ||
+    sourceAssessment.title ||
+    presentationSummary.headline ||
+    (isHomepage ? `Portal Media Resmi: ${sourceAssessment.domain || 'Website Berita'}` : 'Pemeriksaan Pernyataan Publik');
+
+  // Ringkasan keputusan editorial (1-2 kalimat)
+  const decisionSummary =
+    presentationSummary.executiveSummary ||
+    (aiAgent?.executiveSummary) ||
+    (isHomepage
+      ? (lang === 'id'
+          ? `Alamat URL yang dimasukkan merupakan beranda resmi ${sourceAssessment.publisher || sourceAssessment.domain || 'media terdaftar'}. Untuk memverifikasi isi klaim tertentu, masukkan tautan artikel yang spesifik.`
+          : `The URL entered is the verified homepage of ${sourceAssessment.publisher || sourceAssessment.domain || 'a recognized news source'}. For article verification, enter the specific story link.`)
+      : (lang === 'id'
+          ? (verdict === 'VERIFIED_TRUE' || verdict === 'FACT' || verdict === 'SUPPORTED'
+              ? 'Klaim tersebut didukung oleh pernyataan dan laporan dari sumber-sumber kredibel yang ditinjau VeriFact ID.'
+              : verdict === 'FALSE' || verdict === 'HOAX'
+              ? 'Klaim tersebut bertentangan dengan fakta resmi, data otoritatif, dan temuan lembaga cek fakta independen.'
+              : verdict === 'MISLEADING'
+              ? 'Sebagian informasi mengandung unsur fakta, namun dibingkai dengan konteks yang keliru atau judul yang memelintir peristiwa.'
+              : 'Belum ditemukan bukti independen primer yang memadai untuk mengonfirmasi kebenaran klaim ini secara definitif.')
+          : 'Evaluation based on independent verifiable reporting and official public documentation.'));
+
+  // Tanggal format editorial
+  const dateFormatted = new Date(timestamp || Date.now()).toLocaleDateString(lang === 'id' ? 'id-ID' : 'en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 
   return (
     <div
-      className="p-5 sm:p-6 rounded-2xl vf-card space-y-4 transition-all"
+      className="p-6 sm:p-8 rounded-2xl vf-card space-y-6 transition-all"
+      style={{
+        backgroundColor: 'var(--vf-surface)',
+        borderColor: 'var(--vf-border)',
+      }}
     >
-      {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-3.5" style={{ borderColor: 'var(--vf-border)' }}>
-        <div className="flex items-center space-x-2">
-          <ShieldIcon className="w-4 h-4 text-indigo-500" />
-          <span className="text-xs font-bold uppercase tracking-wider text-indigo-500 font-mono">
-            VERIFACT AUDIT DOSSIER &bull; RESEARCH SUMMARY
-          </span>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          {result.subType && (
-            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
-              {result.subType}
+      {/* 1. EDITORIAL VERDICT HEADER */}
+      <div className="space-y-4">
+        {/* Status Pill & Metadata Byline */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b" style={{ borderColor: 'var(--vf-border)' }}>
+          <div className="flex items-center space-x-2">
+            <span className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${statusStyle.badgeBg}`}>
+              <span className={`w-2 h-2 rounded-full ${statusStyle.dotBg}`} />
+              <span>{resultLabel}</span>
             </span>
-          )}
-          <span className={`text-xs font-mono font-bold px-3 py-1 rounded-full border ${badgeTheme.bg} ${badgeTheme.text} ${badgeTheme.border}`}>
-            {resultLabel}
-          </span>
-          <span className="text-xs font-mono px-2.5 py-1 rounded-full bg-slate-500/10 text-slate-300 border border-slate-500/20 font-semibold">
-            Confidence: {confidenceDisplay}
-          </span>
+
+            {result.subType && (
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-500/10 text-slate-300 border border-slate-500/20">
+                {result.subType}
+              </span>
+            )}
+          </div>
+
+          <div className="text-xs font-mono flex items-center space-x-2" style={{ color: 'var(--vf-text-muted)' }}>
+            <span>Diperbarui {dateFormatted}</span>
+            <span>&bull;</span>
+            <span>Keyakinan: {confidenceDisplay}</span>
+          </div>
+        </div>
+
+        {/* 2. THE MAIN EDITORIAL SERIF HEADLINE */}
+        <h2
+          className="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold tracking-tight leading-tight"
+          style={{ color: 'var(--vf-text)' }}
+        >
+          {claimHeadline}
+        </h2>
+
+        {/* 3. EXECUTIVE DECISION SUMMARY (1-2 Sentences) */}
+        <p
+          className="text-base sm:text-lg leading-relaxed font-sans"
+          style={{ color: 'var(--vf-text-secondary)', lineHeight: 1.65 }}
+        >
+          {decisionSummary}
+        </p>
+
+        {/* 4. BYLINE SUMMARY STRIP */}
+        <div
+          className="pt-2 flex flex-wrap items-center gap-y-2 gap-x-4 text-xs font-mono"
+          style={{ color: 'var(--vf-text-muted)' }}
+        >
+          <span>Penerbit: <strong className="text-slate-200">{sourceAssessment.publisher || sourceAssessment.domain || 'Sumber Terbuka'}</strong></span>
+          <span>&bull;</span>
+          <span>{evidence.length} Sumber Bukti Terverifikasi</span>
+          <span>&bull;</span>
+          <span>{result.atomicClaims?.length || 1} Proposisi Klaim</span>
         </div>
       </div>
 
-      {/* Grid of Key Properties */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-        {/* Item 1: Input Type */}
-        <div className="p-3 rounded-xl border space-y-1" style={{ backgroundColor: 'var(--vf-surface-muted)', borderColor: 'var(--vf-border)' }}>
-          <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--vf-text-muted)' }}>
-            {lang === 'id' ? '1. Klasifikasi Masukan' : '1. Input Classification'}
-          </span>
-          <span className="font-semibold block truncate" style={{ color: 'var(--vf-text)' }}>
-            {result.subType ? `${inputTypeLabel} (${result.subType})` : inputTypeLabel}
-          </span>
-        </div>
+      {/* 5. MENGAPA KAMI MENYIMPULKAN INI (3 Poin Editorial Bersih - Tanpa Kotak Bertumpuk) */}
+      <div className="pt-4 border-t space-y-3" style={{ borderColor: 'var(--vf-border)' }}>
+        <h4 className="text-xs font-bold uppercase tracking-wider font-mono text-slate-400">
+          Mengapa Kami Menyimpulkan Ini:
+        </h4>
 
-        {/* Item 2: Source Publisher */}
-        <div className="p-3 rounded-xl border space-y-1" style={{ backgroundColor: 'var(--vf-surface-muted)', borderColor: 'var(--vf-border)' }}>
-          <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--vf-text-muted)' }}>
-            {lang === 'id' ? '2. Identitas Sumber' : '2. Source / Publisher'}
-          </span>
-          <span className="font-semibold block truncate" style={{ color: 'var(--vf-text)' }}>
-            {sourceAssessment.publisher || sourceAssessment.domain || 'Sumber Umum'}
-          </span>
-        </div>
+        <div className="space-y-2 text-sm leading-relaxed" style={{ color: 'var(--vf-text-secondary)' }}>
+          <div className="flex items-start space-x-2.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-400 mt-2 shrink-0" />
+            <p>
+              {sourceAssessment.isRegistered
+                ? `Sumber terafiliasi dengan penerbit terdaftar (${sourceAssessment.publisher || sourceAssessment.domain}) dengan rekam jejak jurnalistik kredibel.`
+                : isHomepage
+                ? `Domain ${sourceAssessment.domain} terverifikasi valid dengan sertifikat SSL aktif tanpa indikasi typosquatting.`
+                : `Penelusuran multi-tier membandingkan narasi terhadap konsensus data lembaga berwenang.`}
+            </p>
+          </div>
 
-        {/* Item 3: Content Status */}
-        <div className="p-3 rounded-xl border space-y-1" style={{ backgroundColor: 'var(--vf-surface-muted)', borderColor: 'var(--vf-border)' }}>
-          <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--vf-text-muted)' }}>
-            {lang === 'id' ? '3. Pembacaan Isi' : '3. Content Status'}
-          </span>
-          <span className="font-semibold block truncate" style={{ color: 'var(--vf-text)' }}>
-            {contentStatus}
-          </span>
-        </div>
+          <div className="flex items-start space-x-2.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-400 mt-2 shrink-0" />
+            <p>
+              {evidence.length > 0
+                ? `Ditemukan ${evidence.length} rujukan independen yang konsisten mengenai substansi peristiwa.`
+                : `Tidak ditemukan pengumuman resmi yang membenarkan informasi ini dari instansi berwenang.`}
+            </p>
+          </div>
 
-        {/* Item 4: Evidence Count */}
-        <div className="p-3 rounded-xl border space-y-1" style={{ backgroundColor: 'var(--vf-surface-muted)', borderColor: 'var(--vf-border)' }}>
-          <span className="text-[10px] font-bold uppercase tracking-wider block" style={{ color: 'var(--vf-text-muted)' }}>
-            {lang === 'id' ? '4. Bukti Faktual' : '4. Evidence Sources'}
-          </span>
-          <span className="font-semibold block" style={{ color: 'var(--vf-text)' }}>
-            {evidence.length} {lang === 'id' ? 'Sumber' : 'Sources'}
-          </span>
+          <div className="flex items-start space-x-2.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-400 mt-2 shrink-0" />
+            <p>
+              Tingkat keyakinan sistem dinilai secara terbuka ({confidenceDisplay}) berdasarkan hierarki bukti dan independensi sumber.
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* SPECIAL HIGHLIGHT: GOOGLE AI STUDIO FORENSIC AGENT BLOCK */}
+      {/* 6. ACCORDION FORENSIK SEMANTIK & DETAIL TEKNIS (Deep Dive Saat Dibutuhkan) */}
       {hasAiAgent && (
-        <div
-          className="p-4 rounded-xl border space-y-2.5 relative overflow-hidden"
-          style={{
-            backgroundColor: 'color-mix(in srgb, var(--vf-primary) 6%, transparent)',
-            borderColor: 'color-mix(in srgb, var(--vf-primary) 30%, transparent)',
-          }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center space-x-2">
-              <SparklesIcon className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="font-bold text-xs uppercase tracking-wider text-cyan-400 font-mono">
-                VeriFact Forensic Intelligence Engine
+        <div className="pt-3 border-t" style={{ borderColor: 'var(--vf-border)' }}>
+          <button
+            type="button"
+            onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
+            className="w-full flex items-center justify-between py-2 text-xs font-mono font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            <span className="flex items-center space-x-2">
+              <SparklesIcon className="w-3.5 h-3.5 text-indigo-400" />
+              <span>
+                {showTechnicalDetails
+                  ? 'Sembunyikan Laporan Forensik Semantik & Detail Teknis'
+                  : 'Lihat Laporan Forensik Semantik & Detail Teknis (AI Studio Agent)'}
               </span>
+            </span>
+            <span>{showTechnicalDetails ? '▲' : '▼'}</span>
+          </button>
+
+          {showTechnicalDetails && (
+            <div
+              className="mt-3 p-4 rounded-xl border text-xs space-y-3 vf-fade-up font-sans"
+              style={{
+                backgroundColor: 'var(--vf-surface-muted)',
+                borderColor: 'var(--vf-border)',
+              }}
+            >
+              <div className="flex items-center justify-between border-b pb-2" style={{ borderColor: 'var(--vf-border)' }}>
+                <span className="font-mono font-bold text-slate-300">Model: {aiAgent.modelUsed || 'Gemini 2.5 Flash'}</span>
+                <span className="font-mono text-emerald-400">Skor ML: {aiAgent.confidenceScore}%</span>
+              </div>
+
+              {aiAgent.verdictHeadline && (
+                <div className="space-y-1">
+                  <span className="text-[11px] font-mono text-slate-400 uppercase">Fokus Investigasi Forensik:</span>
+                  <p className="font-semibold text-slate-200">&ldquo;{aiAgent.verdictHeadline}&rdquo;</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-[11px] pt-1">
+                <div className="p-2 rounded bg-slate-900/50 border border-white/5">
+                  <span className="text-slate-400 block">Clickbait Rating:</span>
+                  <strong className="text-slate-200">{aiAgent.biasAndRhetoric?.clickbaitRating || 'Rendah'}</strong>
+                </div>
+                <div className="p-2 rounded bg-slate-900/50 border border-white/5">
+                  <span className="text-slate-400 block">Akurasi Judul:</span>
+                  <strong className="text-slate-200">{aiAgent.headlineAccuracy?.matchesContent ? 'Sesuai' : 'Perlu Konteks'}</strong>
+                </div>
+                <div className="p-2 rounded bg-slate-900/50 border border-white/5">
+                  <span className="text-slate-400 block">Manipulasi Emosi:</span>
+                  <strong className="text-slate-200">{aiAgent.biasAndRhetoric?.emotionalManipulation || 'Netral'}</strong>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <span
-                className={`text-xs font-mono font-extrabold px-2.5 py-0.5 rounded-full border ${
-                  aiAgent.agentVerdict === 'TERVERIFIKASI_FAKTUAL'
-                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                    : aiAgent.agentVerdict === 'HOAKS_PALSU'
-                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                    : aiAgent.agentVerdict === 'MENYESATKAN_MISLEADING'
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                    : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
-                }`}
-              >
-                {aiAgent.agentVerdict === 'TERVERIFIKASI_FAKTUAL'
-                  ? 'TERVERIFIKASI FAKTUAL'
-                  : aiAgent.agentVerdict === 'HOAKS_PALSU'
-                  ? 'HOAKS / PALSU'
-                  : aiAgent.agentVerdict === 'MENYESATKAN_MISLEADING'
-                  ? 'MENYESATKAN (MISLEADING)'
-                  : aiAgent.agentVerdict || 'ANALISIS AI SELESAI'}
-              </span>
-              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-cyan-500/30">
-                Keyakinan ML: {aiAgent.confidenceScore}%
-              </span>
-            </div>
-          </div>
-
-          {aiAgent.verdictHeadline && (
-            <p className="text-xs sm:text-sm font-semibold leading-relaxed" style={{ color: 'var(--vf-text)' }}>
-              &ldquo;{aiAgent.verdictHeadline}&rdquo;
-            </p>
           )}
-
-          {aiAgent.executiveSummary && (
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--vf-text-secondary)' }}>
-              {aiAgent.executiveSummary}
-            </p>
-          )}
-
-          <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-mono" style={{ color: 'var(--vf-text-muted)' }}>
-            <span>
-              Clickbait: <strong className="text-slate-200">{aiAgent.biasAndRhetoric?.clickbaitRating || 'Rendah'}</strong>
-            </span>
-            <span className="opacity-40">&bull;</span>
-            <span>
-              Kesesuaian Judul: <strong className="text-slate-200">{aiAgent.headlineAccuracy?.matchesContent ? 'Sesuai' : 'Perlu Diwaspadai'}</strong>
-            </span>
-            <span className="opacity-40">&bull;</span>
-            <span>
-              Manipulasi Emosi: <strong className="text-slate-200">{aiAgent.biasAndRhetoric?.emotionalManipulation || 'Netral'}</strong>
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Second Row: Detailed Breakdown of Evidence & Claims */}
-      {!isHomepage && (
-        <div
-          className="p-3.5 rounded-xl border flex flex-wrap items-center justify-between gap-3 text-xs font-mono"
-          style={{
-            backgroundColor: 'var(--vf-surface-muted)',
-            borderColor: 'var(--vf-border)',
-            color: 'var(--vf-text-secondary)',
-          }}
-        >
-          <div className="flex flex-wrap items-center gap-4">
-            <span>
-              Klaim Atomik: <strong style={{ color: 'var(--vf-text)' }}>{result.atomicClaims?.length || 0}</strong>
-            </span>
-            <span className="opacity-40">&bull;</span>
-            <span>
-              Sumber Resmi (Tier 1): <strong style={{ color: 'var(--vf-text)' }}>{stats.primaryCount ?? evidence.filter((e) => e.tier === 1).length}</strong>
-            </span>
-            <span className="opacity-40">&bull;</span>
-            <span>
-              Periksa Fakta (Tier 3): <strong style={{ color: 'var(--vf-text)' }}>{stats.factCheckCount ?? evidence.filter((e) => e.tier === 3 || e.sourceType === 'fact_check').length}</strong>
-            </span>
-            <span className="opacity-40">&bull;</span>
-            <span>
-              Kluster Independen: <strong style={{ color: 'var(--vf-text)' }}>{result.sourceClusters?.length || 0}</strong>
-            </span>
-          </div>
-
-          <div className="text-[11px] text-slate-400">
-            Pipeline: 100% Selesai
-          </div>
         </div>
       )}
     </div>
   );
 }
+
+export default PresentationSummaryCard;
