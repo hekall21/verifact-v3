@@ -263,7 +263,7 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
         >
           <div className="flex items-center gap-3">
             <span className="text-xs font-mono font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
-              SUMBER WEBSITE TERIDENTIFIKASI (§2)
+              SUMBER WEBSITE TERIDENTIFIKASI
             </span>
           </div>
 
@@ -385,7 +385,7 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
         >
           <div className="flex items-center gap-3">
             <span className="text-xs font-mono font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-              ARTIKEL TERDETEKSI — ISI BELUM TERBACA LENGKAP (§8)
+              ARTIKEL TERDETEKSI — ISI BELUM TERBACA LENGKAP
             </span>
           </div>
 

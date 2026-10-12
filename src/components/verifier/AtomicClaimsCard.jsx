@@ -52,8 +52,9 @@ export function AtomicClaimsCard({ atomicClaims = [], lang = 'id' }) {
     >
       <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--vf-border)' }}>
         <div>
-          <h3 className="font-heading font-bold text-sm sm:text-base" style={{ color: 'var(--vf-text)' }}>
-            {lang === 'id' ? '🧩 Dekomposisi Klaim Atomik (Atomic Claim Engine)' : '🧩 Atomic Claim Decomposition'}
+          <h3 className="font-heading font-bold text-sm sm:text-base flex items-center space-x-2" style={{ color: 'var(--vf-text)' }}>
+            <span className="w-2 h-2 rounded-full bg-indigo-500" />
+            <span>{lang === 'id' ? 'Dekomposisi Klaim Atomik (Atomic Claim Engine)' : 'Atomic Claim Decomposition'}</span>
           </h3>
           <p className="text-xs" style={{ color: 'var(--vf-text-muted)' }}>
             {lang === 'id'

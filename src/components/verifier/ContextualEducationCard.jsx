@@ -52,7 +52,7 @@ export function ContextualEducationCard({ education, reportResources = [], lang 
             {guideTitle}
           </h3>
           <span className="text-[11px] font-mono text-indigo-500 uppercase tracking-wider block">
-            EDUKASI & SALURAN PELAPORAN RESMI (§25 - §27)
+            {lang === 'id' ? 'Edukasi Literasi & Saluran Pelaporan Resmi' : 'Literacy Education & Official Channels'}
           </span>
         </div>
       </div>

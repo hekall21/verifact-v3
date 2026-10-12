@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { ShieldIcon, CheckCircleIcon, AlertTriangleIcon, InfoIcon } from '../common/Icons.jsx';
+import { ShieldIcon, CheckCircleIcon, AlertTriangleIcon, InfoIcon, SparklesIcon } from '../common/Icons.jsx';
 
 export function PresentationSummaryCard({ result = {}, lang = 'id' }) {
   const {
@@ -126,18 +126,14 @@ export function PresentationSummaryCard({ result = {}, lang = 'id' }) {
 
   return (
     <div
-      className="p-5 sm:p-6 rounded-2xl border shadow-sm space-y-4 transition-all"
-      style={{
-        backgroundColor: 'var(--vf-surface)',
-        borderColor: 'var(--vf-border)',
-      }}
+      className="p-5 sm:p-6 rounded-2xl vf-card space-y-4 transition-all"
     >
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b pb-3.5" style={{ borderColor: 'var(--vf-border)' }}>
         <div className="flex items-center space-x-2">
           <ShieldIcon className="w-4 h-4 text-indigo-500" />
           <span className="text-xs font-bold uppercase tracking-wider text-indigo-500 font-mono">
-            VERIFACT ID 5.0 RESEARCH SUMMARY (§31 & §35)
+            VERIFACT AUDIT DOSSIER &bull; RESEARCH SUMMARY
           </span>
         </div>
 
@@ -210,7 +206,7 @@ export function PresentationSummaryCard({ result = {}, lang = 'id' }) {
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center space-x-2">
-              <span className="text-sm">✨</span>
+              <SparklesIcon className="w-3.5 h-3.5 text-cyan-400" />
               <span className="font-bold text-xs uppercase tracking-wider text-cyan-400 font-mono">
                 VeriFact Forensic Intelligence Engine
               </span>

@@ -74,6 +74,9 @@ for (const favTag of faviconMatches) {
   }
 }
 
+// Keamanan & Sanitasi: Pastikan tidak ada credential / API key privat yang bocor ke bundle offline HTML
+html = html.replace(/AQ\.[A-Za-z0-9_-]{25,}/g, '');
+
 // Tulis ke dist/standalone.html dan index.offline.html di root
 const targetOfflineDist = path.join(distDir, 'standalone.html');
 fs.writeFileSync(targetOfflineDist, html, 'utf8');

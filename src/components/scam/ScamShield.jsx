@@ -206,7 +206,10 @@ export function ScamShield({ lang = 'id' }) {
               color: 'var(--vf-primary)',
             }}
           >
-            <span>🧪 {lang === 'id' ? 'Buka Mode Demo / Data Uji Coba' : 'Open Demo / Test Mode'}</span>
+            <span className="flex items-center space-x-1.5 font-medium">
+              <ShieldIcon className="w-3.5 h-3.5 text-indigo-500" />
+              <span>{lang === 'id' ? 'Mode Demo / Data Uji Coba' : 'Demo / Test Mode'}</span>
+            </span>
           </button>
         </div>
       </div>
@@ -328,7 +331,7 @@ export function ScamShield({ lang = 'id' }) {
             >
               {phoneResult.isSimulation && (
                 <div className="px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 flex items-center gap-2">
-                  <span>🧪 {phoneResult.simulationBadge || 'SIMULASI / DATA UJI'}</span>
+                  <span>{phoneResult.simulationBadge || 'SIMULASI / DATA UJI'}</span>
                 </div>
               )}
 
@@ -423,7 +426,7 @@ export function ScamShield({ lang = 'id' }) {
             >
               {accountResult.isSimulation && (
                 <div className="px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 flex items-center gap-2">
-                  <span>🧪 {accountResult.simulationBadge || 'SIMULASI / DATA UJI'}</span>
+                  <span>{accountResult.simulationBadge || 'SIMULASI / DATA UJI'}</span>
                 </div>
               )}
 
@@ -507,7 +510,7 @@ export function ScamShield({ lang = 'id' }) {
             >
               {urlResult.isSimulation && (
                 <div className="px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 flex items-center gap-2">
-                  <span>🧪 {urlResult.simulationBadge || 'SIMULASI / DOMAIN .INVALID'}</span>
+                  <span>{urlResult.simulationBadge || 'SIMULASI / DOMAIN .INVALID'}</span>
                 </div>
               )}
 
@@ -674,7 +677,7 @@ export function ScamShield({ lang = 'id' }) {
             <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: 'var(--vf-border)' }}>
               <div>
                 <h3 className="text-lg font-bold" style={{ color: 'var(--vf-text)' }}>
-                  🧪 Mode Demo / Data Uji Coba Keamanan
+                  {lang === 'id' ? 'Mode Demo / Data Uji Coba Keamanan' : 'Demo Mode / Security Test Data'}
                 </h3>
                 <p className="text-xs" style={{ color: 'var(--vf-text-muted)' }}>
                   Pilih data uji coba aman di bawah ini untuk melihat bagaimana antarmuka merespons ancaman nyata.

@@ -2,28 +2,16 @@
  * src/components/common/VeriFactLogo.jsx
  *
  * Official Vector Brand Identity Component for VeriFact ID 5.0.
- *
- * Konsep Desain:
- * - Shield (Perlindungan & Cybersecurity Threat Intelligence)
- * - Dynamic Monogram 'V' + Checkmark '✓' (Verifikasi Faktual & Akurasi Bukti)
- * - Prism Nexus & Light Sparkle (Transparansi Sumber & AI Machine Learning)
- * - Modern Cyan-to-Indigo-to-Violet Spectrum Gradient
- *
- * Mendukung varian:
- * - 'icon': Emblem logo SVG murni, skalabel tanpa batas.
- * - 'badge': Emblem dalam squircle kontur bergradien halus dan glassmorphism.
- * - 'full': Logo lengkap horizontal (Emblem + Tipografi Brand + Lencana 'ID' + Tag Versi).
+ * Refined Minimalist Enterprise Design (Perplexity / Linear Aesthetic)
  */
 
 import React from 'react';
 
 export function VeriFactEmblem({ size = 36, className = '', idSuffix = 'main' }) {
   const s = typeof size === 'number' ? `${size}px` : size;
-  const gradLeft = `vf-emblem-left-${idSuffix}`;
-  const gradRight = `vf-emblem-right-${idSuffix}`;
-  const gradCheck = `vf-emblem-check-${idSuffix}`;
-  const gradStroke = `vf-emblem-stroke-${idSuffix}`;
-  const gradGlow = `vf-emblem-glow-${idSuffix}`;
+  const gradA = `vf-grad-a-${idSuffix}`;
+  const gradB = `vf-grad-b-${idSuffix}`;
+  const gradCheck = `vf-grad-c-${idSuffix}`;
 
   return (
     <svg
@@ -32,86 +20,68 @@ export function VeriFactEmblem({ size = 36, className = '', idSuffix = 'main' })
       viewBox="0 0 100 100"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={`shrink-0 ${className}`}
-      aria-label="VeriFact ID Logo"
+      className={`shrink-0 transition-transform duration-300 ${className}`}
+      aria-label="VeriFact ID Logo Emblem"
     >
       <defs>
-        {/* Left Wing Gradient (Cyan to Indigo) */}
-        <linearGradient id={gradLeft} x1="15%" y1="20%" x2="55%" y2="85%">
-          <stop offset="0%" stopColor="#22D3EE" />
-          <stop offset="50%" stopColor="#06B6D4" />
-          <stop offset="100%" stopColor="#4F46E5" />
-        </linearGradient>
-
-        {/* Right Wing Gradient (Indigo to Purple) */}
-        <linearGradient id={gradRight} x1="85%" y1="20%" x2="45%" y2="85%">
+        {/* Modern Indigo-Cobalt Linear Gradient */}
+        <linearGradient id={gradA} x1="10%" y1="10%" x2="90%" y2="90%">
           <stop offset="0%" stopColor="#818CF8" />
-          <stop offset="50%" stopColor="#6366F1" />
-          <stop offset="100%" stopColor="#9333EA" />
+          <stop offset="60%" stopColor="#6366F1" />
+          <stop offset="100%" stopColor="#4338CA" />
         </linearGradient>
 
-        {/* Truth Checkmark & Beam Gradient (Emerald to Cyan) */}
-        <linearGradient id={gradCheck} x1="20%" y1="30%" x2="90%" y2="70%">
+        {/* Sky / Cyan Precision Accent Gradient */}
+        <linearGradient id={gradB} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#38BDF8" />
+          <stop offset="100%" stopColor="#0284C7" />
+        </linearGradient>
+
+        {/* Crisp Emerald Truth Checkmark */}
+        <linearGradient id={gradCheck} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="#34D399" />
-          <stop offset="60%" stopColor="#10B981" />
-          <stop offset="100%" stopColor="#06B6D4" />
+          <stop offset="100%" stopColor="#059669" />
         </linearGradient>
-
-        {/* Outline Contour Gradient */}
-        <linearGradient id={gradStroke} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.8" />
-          <stop offset="50%" stopColor="#818CF8" stopOpacity="0.6" />
-          <stop offset="100%" stopColor="#A855F7" stopOpacity="0.4" />
-        </linearGradient>
-
-        {/* Ambient Glow Filter */}
-        <filter id={gradGlow} x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3.5" result="blur" />
-          <feComposite in="SourceGraphic" in2="blur" operator="over" />
-        </filter>
       </defs>
 
-      {/* Outer Hex-Shield Subtle Protective Shell */}
+      {/* Hex-Shield Geometric Base */}
       <path
-        d="M50 6 L86 21 C86 58 50 94 50 94 C50 94 14 58 14 21 Z"
-        fill="#090A0F"
-        fillOpacity="0.65"
-        stroke={`url(#${gradStroke})`}
+        d="M50 8 L85 22 C85 55 50 88 50 88 C50 88 15 55 15 22 Z"
+        fill="#0B0E17"
+        stroke={`url(#${gradA})`}
         strokeWidth="2.5"
         strokeLinejoin="round"
       />
 
-      {/* Internal Geometry: Left Facet (Shield Wing) */}
+      {/* Internal Left Geometric Wing */}
       <path
-        d="M50 14 L22 26 C22 55 50 84 50 84 L50 48 Z"
-        fill={`url(#${gradLeft})`}
-        fillOpacity="0.9"
+        d="M50 16 L23 27 C23 52 50 78 50 78 L50 48 Z"
+        fill={`url(#${gradA})`}
+        fillOpacity="0.85"
       />
 
-      {/* Internal Geometry: Right Facet (Shield Wing) */}
+      {/* Internal Right Geometric Wing */}
       <path
-        d="M50 14 L78 26 C78 55 50 84 50 84 L50 48 Z"
-        fill={`url(#${gradRight})`}
-        fillOpacity="0.8"
+        d="M50 16 L77 27 C77 52 50 78 50 78 L50 48 Z"
+        fill={`url(#${gradB})`}
+        fillOpacity="0.7"
       />
 
-      {/* The Central Dynamic "V" Cutout & Shadow */}
+      {/* Precision Central Monogram 'V' Cutout */}
       <path
-        d="M50 18 L68 30 L50 68 L32 30 Z"
-        fill="#0B0E17"
-        fillOpacity="0.75"
+        d="M50 20 L66 31 L50 64 L34 31 Z"
+        fill="#090A0F"
+        fillOpacity="0.95"
       />
 
-      {/* The Truth Checkmark (Bold, Precision Angle) */}
+      {/* The Central Verification Checkmark */}
       <path
-        d="M34 50 L46 62 L74 32 L68 26 L46 51 L40 45 Z"
+        d="M36 48 L46 58 L72 32 L66 26 L46 47 L42 43 Z"
         fill={`url(#${gradCheck})`}
-        filter={`url(#${gradGlow})`}
       />
 
-      {/* Apex Truth Star / Forensic Lens Glint */}
-      <circle cx="50" cy="14" r="3" fill="#FFFFFF" />
-      <circle cx="50" cy="14" r="6" fill="#38BDF8" fillOpacity="0.5" />
+      {/* Precision Focal Lens Spark */}
+      <circle cx="50" cy="16" r="2.5" fill="#FFFFFF" />
     </svg>
   );
 }
@@ -131,13 +101,12 @@ export function VeriFactLogo({
     return (
       <div
         onClick={onClick}
-        className={`inline-flex items-center justify-center p-2 rounded-2xl border shadow-lg transition-transform hover:scale-105 ${
-          onClick ? 'cursor-pointer' : ''
+        className={`inline-flex items-center justify-center p-2 rounded-xl border transition-all duration-200 hover:border-indigo-500/50 ${
+          onClick ? 'cursor-pointer active:scale-95' : ''
         } ${className}`}
         style={{
-          background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%)',
-          borderColor: 'rgba(99, 102, 241, 0.3)',
-          boxShadow: '0 8px 24px -4px rgba(6, 182, 212, 0.15), 0 2px 6px -1px rgba(99, 102, 241, 0.2)',
+          backgroundColor: 'var(--vf-surface)',
+          borderColor: 'var(--vf-border)',
         }}
       >
         <VeriFactEmblem size={size} idSuffix="badge" />
@@ -153,43 +122,39 @@ export function VeriFactLogo({
         onClick ? 'cursor-pointer group' : ''
       } ${className}`}
     >
-      {/* Emblem with glow container */}
+      {/* Emblem with clean container */}
       <div
-        className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:scale-105 relative overflow-hidden"
+        className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 group-hover:border-indigo-500/40 border shadow-sm relative shrink-0"
         style={{
-          background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.8) 100%)',
-          border: '1px solid rgba(99, 102, 241, 0.35)',
-          boxShadow: '0 4px 16px -2px rgba(6, 182, 212, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+          backgroundColor: 'var(--vf-surface)',
+          borderColor: 'var(--vf-border)',
         }}
       >
-        <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/10 via-transparent to-indigo-500/10 pointer-events-none" />
-        <VeriFactEmblem size={32} idSuffix="navbar" />
+        <VeriFactEmblem size={28} idSuffix="navbar" />
       </div>
 
       {/* Brand Text & Metadata */}
       <div className="flex flex-col">
         <div className="flex items-center space-x-2">
           <span
-            className="font-black text-lg sm:text-xl tracking-tight leading-none transition-colors"
+            className="font-bold text-lg sm:text-xl tracking-tight leading-none"
             style={{ fontFamily: 'var(--font-display)', color: 'var(--vf-text)' }}
           >
-            VeriFact
-            <span
-              className="ml-0.5 px-1.5 py-0.5 rounded-md text-xs font-black uppercase tracking-wider text-white shadow-sm"
-              style={{
-                background: 'linear-gradient(135deg, #06B6D4 0%, #6366F1 100%)',
-              }}
-            >
-              ID
-            </span>
+            Veri<span className="font-extrabold text-indigo-500">Fact</span>
           </span>
 
           <span
-            className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded uppercase tracking-wider hidden sm:inline-block"
+            className="px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider text-white bg-indigo-600 shadow-sm"
+          >
+            ID
+          </span>
+
+          <span
+            className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded tracking-wider hidden sm:inline-block border"
             style={{
-              backgroundColor: 'color-mix(in srgb, var(--vf-primary) 15%, transparent)',
-              color: 'var(--vf-primary)',
-              border: '1px solid color-mix(in srgb, var(--vf-primary) 30%, transparent)',
+              backgroundColor: 'var(--vf-surface-muted)',
+              borderColor: 'var(--vf-border)',
+              color: 'var(--vf-text-muted)',
             }}
           >
             v5.0
@@ -198,10 +163,10 @@ export function VeriFactLogo({
 
         {showTagline && (
           <p
-            className="text-[10px] sm:text-[11px] leading-tight font-medium mt-1 hidden sm:block tracking-wide"
+            className="text-[11px] leading-tight font-medium mt-1 hidden sm:block tracking-normal"
             style={{ color: 'var(--vf-text-muted)' }}
           >
-            Research &bull; Fact Check &bull; Scam Shield &bull; AI Agent
+            Evidence Intelligence &bull; Fact Verification &bull; Scam Shield
           </p>
         )}
       </div>

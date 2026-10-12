@@ -1,12 +1,13 @@
 /**
- * Navbar.jsx
+ * src/components/common/Navbar.jsx
  *
  * Header navigasi adaptif dengan dukungan penuh tema (Dark/Light),
  * penukar bahasa reaktif (ID/EN), dan pembuka modal metodologi.
+ * Linear / Perplexity Minimalist Style.
  */
 
 import React, { useState } from 'react';
-import { ShieldIcon, SunIcon, MoonIcon, GlobeIcon, FileTextIcon } from './Icons.jsx';
+import { SunIcon, MoonIcon, GlobeIcon, FileTextIcon } from './Icons.jsx';
 import { VeriFactLogo } from './VeriFactLogo.jsx';
 import { t } from '../../i18n/index.js';
 
@@ -36,11 +37,8 @@ export function Navbar({
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b backdrop-blur-md transition-colors"
-      style={{
-        backgroundColor: 'color-mix(in srgb, var(--vf-bg) 85%, transparent)',
-        borderColor: 'var(--vf-border)',
-      }}
+    <header
+      className="sticky top-0 z-40 vf-glass transition-colors duration-200"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
@@ -52,24 +50,26 @@ export function Navbar({
           />
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-1">
+          <nav className="hidden md:flex items-center p-1 rounded-xl border"
+            style={{
+              backgroundColor: 'var(--vf-surface-muted)',
+              borderColor: 'var(--vf-border)',
+            }}
+          >
             {navItems.map((item) => {
               const isActive = activeTab === item.key;
               return (
                 <button
                   key={item.key}
                   onClick={() => handleNavClick(item.key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    isActive ? 'shadow-sm' : 'hover:opacity-80'
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                    isActive
+                      ? 'shadow-sm text-white'
+                      : 'hover:text-[var(--vf-text)]'
                   }`}
                   style={{
-                    backgroundColor: isActive
-                      ? 'color-mix(in srgb, var(--vf-primary) 12%, transparent)'
-                      : 'transparent',
-                    color: isActive ? 'var(--vf-primary)' : 'var(--vf-text-secondary)',
-                    border: isActive
-                      ? '1px solid color-mix(in srgb, var(--vf-primary) 35%, transparent)'
-                      : '1px solid transparent',
+                    backgroundColor: isActive ? 'var(--vf-primary)' : 'transparent',
+                    color: isActive ? '#FFFFFF' : 'var(--vf-text-secondary)',
                   }}
                 >
                   {item.label}
@@ -83,40 +83,40 @@ export function Navbar({
             <button
               onClick={onOpenMethodology}
               title={t(lang, 'nav.methodology')}
-              className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+              className="hidden lg:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border hover:border-indigo-500/40"
               style={{
-                backgroundColor: 'var(--vf-surface-muted)',
+                backgroundColor: 'var(--vf-surface)',
                 color: 'var(--vf-text-secondary)',
-                border: '1px solid var(--vf-border)',
+                borderColor: 'var(--vf-border)',
               }}
             >
-              <FileTextIcon className="w-3.5 h-3.5" />
+              <FileTextIcon className="w-3.5 h-3.5 text-indigo-500" />
               <span>{t(lang, 'nav.methodology')}</span>
             </button>
 
             {/* Language Switcher */}
             <button
               onClick={onToggleLang}
-              className="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border shadow-xs hover:border-indigo-500/40"
               style={{
                 backgroundColor: 'var(--vf-surface)',
                 color: 'var(--vf-text)',
-                border: '1px solid var(--vf-border)',
+                borderColor: 'var(--vf-border)',
               }}
               title={t(lang, 'lang.switch')}
             >
-              <GlobeIcon className="w-3.5 h-3.5 text-blue-500" />
-              <span>{lang.toUpperCase()}</span>
+              <GlobeIcon className="w-3.5 h-3.5 text-indigo-500" />
+              <span className="font-mono">{lang.toUpperCase()}</span>
             </button>
 
             {/* Theme Switcher */}
             <button
               onClick={onToggleTheme}
-              className="p-2 rounded-lg text-xs transition-all shadow-sm"
+              className="p-2 rounded-lg text-xs transition-all border shadow-xs hover:border-indigo-500/40"
               style={{
                 backgroundColor: 'var(--vf-surface)',
                 color: 'var(--vf-text)',
-                border: '1px solid var(--vf-border)',
+                borderColor: 'var(--vf-border)',
               }}
               title={t(lang, 'theme.toggle')}
             >
@@ -130,11 +130,11 @@ export function Navbar({
             {/* Mobile Hamburger */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-xs transition-colors"
+              className="md:hidden p-2 rounded-lg text-xs transition-colors border"
               style={{
                 backgroundColor: 'var(--vf-surface)',
                 color: 'var(--vf-text)',
-                border: '1px solid var(--vf-border)',
+                borderColor: 'var(--vf-border)',
               }}
               aria-label="Toggle navigation menu"
             >
@@ -152,7 +152,8 @@ export function Navbar({
 
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t px-4 py-3 space-y-1 shadow-lg"
+        <div
+          className="md:hidden border-t px-4 py-3 space-y-1 shadow-xl vf-fade-up"
           style={{
             backgroundColor: 'var(--vf-bg-elevated)',
             borderColor: 'var(--vf-border)',
@@ -164,15 +165,14 @@ export function Navbar({
               <button
                 key={item.key}
                 onClick={() => handleNavClick(item.key)}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                className="w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center justify-between"
                 style={{
-                  backgroundColor: isActive
-                    ? 'color-mix(in srgb, var(--vf-primary) 12%, transparent)'
-                    : 'transparent',
-                  color: isActive ? 'var(--vf-primary)' : 'var(--vf-text)',
+                  backgroundColor: isActive ? 'var(--vf-primary)' : 'transparent',
+                  color: isActive ? '#FFFFFF' : 'var(--vf-text)',
                 }}
               >
-                {item.label}
+                <span>{item.label}</span>
+                {isActive && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
               </button>
             );
           })}
@@ -182,10 +182,10 @@ export function Navbar({
                 onOpenMethodology();
                 setMobileMenuOpen(false);
               }}
-              className="w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center space-x-2"
+              className="w-full text-left px-3.5 py-2.5 rounded-lg text-sm font-medium flex items-center space-x-2"
               style={{ color: 'var(--vf-text-secondary)' }}
             >
-              <FileTextIcon className="w-4 h-4" />
+              <FileTextIcon className="w-4 h-4 text-indigo-500" />
               <span>{t(lang, 'nav.methodology')}</span>
             </button>
           </div>
@@ -194,3 +194,5 @@ export function Navbar({
     </header>
   );
 }
+
+export default Navbar;

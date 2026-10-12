@@ -155,7 +155,7 @@ export function App() {
 
   return (
     <div
-      className="min-h-screen flex flex-col font-sans transition-colors duration-200"
+      className="min-h-screen flex flex-col font-sans transition-colors duration-200 vf-grid-bg"
       style={{
         backgroundColor: 'var(--vf-bg)',
         color: 'var(--vf-text)',
@@ -176,77 +176,72 @@ export function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         {activeTab === 'verifier' && (
           <div className="space-y-8">
-            {/* Hero Section (§33) */}
+            {/* Hero Section */}
             {!result && !loading && (
-              <div className="text-center space-y-4 max-w-3xl mx-auto py-6 sm:py-10 vf-fade-up">
-                {/* Hero Logo Emblem */}
-                <div className="flex justify-center pb-1">
-                  <div className="relative group cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                    <div className="absolute -inset-2 rounded-3xl bg-gradient-to-r from-cyan-500/25 via-indigo-500/25 to-purple-500/25 blur-xl opacity-75 group-hover:opacity-100 transition duration-700 pointer-events-none" />
-                    <div
-                      className="relative p-3.5 rounded-2xl border shadow-xl flex items-center justify-center transition-all duration-300 group-hover:scale-105"
-                      style={{
-                        background: 'linear-gradient(145deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.85) 100%)',
-                        borderColor: 'rgba(99, 102, 241, 0.35)',
-                        boxShadow: '0 8px 30px -4px rgba(6, 182, 212, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-                      }}
-                    >
-                      <VeriFactEmblem size={52} idSuffix="hero" />
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-sm"
+              <div className="text-center space-y-5 max-w-3xl mx-auto py-8 sm:py-12 vf-fade-up">
+                {/* Hero Minimal Badge */}
+                <div className="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full text-xs font-semibold border shadow-xs"
                   style={{
-                    backgroundColor: 'color-mix(in srgb, var(--vf-primary) 12%, transparent)',
-                    color: 'var(--vf-primary)',
-                    border: '1px solid color-mix(in srgb, var(--vf-primary) 28%, transparent)',
+                    backgroundColor: 'var(--vf-surface)',
+                    borderColor: 'var(--vf-border)',
+                    color: 'var(--vf-text-secondary)',
                   }}
                 >
-                  <VeriFactEmblem size={14} idSuffix="pill" />
-                  <span>{t(lang, 'app.badge')} • Evidence Intelligence</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-mono text-[11px] uppercase tracking-wider">
+                    {t(lang, 'app.badge')} &bull; Evidence Intelligence Engine
+                  </span>
                 </div>
 
                 <h1
-                  className="text-3xl sm:text-5xl font-black tracking-tight leading-tight"
-                  style={{ fontFamily: 'var(--font-display)', color: 'var(--vf-text)', lineHeight: 1.15 }}
+                  className="text-4xl sm:text-6xl font-extrabold tracking-tight"
+                  style={{ fontFamily: 'var(--font-display)', color: 'var(--vf-text)', lineHeight: 1.1 }}
                 >
                   {lang === 'id' ? (
                     <>
-                      Verifikasi Sebelum <span style={{ color: 'var(--vf-primary)' }}>Percaya.</span>
+                      Verifikasi Informasi. <br className="hidden sm:inline" />
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-sky-400 to-indigo-400">
+                        Sebelum Percaya.
+                      </span>
                     </>
                   ) : (
                     <>
-                      Verify Before You <span style={{ color: 'var(--vf-primary)' }}>Trust.</span>
+                      Verify Information. <br className="hidden sm:inline" />
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 via-sky-400 to-indigo-400">
+                        Before You Trust.
+                      </span>
                     </>
                   )}
                 </h1>
 
                 <p
                   className="text-sm sm:text-base max-w-2xl mx-auto leading-relaxed"
-                  style={{ color: 'var(--vf-text-secondary)', lineHeight: 1.5 }}
+                  style={{ color: 'var(--vf-text-secondary)' }}
                 >
                   {lang === 'id'
-                    ? 'Periksa berita, URL, pesan, dan indikasi penipuan berdasarkan bukti yang dapat ditelusuri secara objektif dan transparan.'
-                    : 'Verify news articles, URLs, chain messages, and cyber scam indicators based on traceable and objective evidence.'}
+                    ? 'Periksa artikel berita, tautan digital, pesan berantai, dan ancaman penipuan online dengan bukti fakta terbuka yang objektif dan terverifikasi.'
+                    : 'Audit news articles, digital links, scam messages, and cyber fraud indicators objectively with verified open-source evidence.'}
                 </p>
 
                 {/* Trust Highlights */}
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-xs" style={{ color: 'var(--vf-text-muted)' }}>
-                  <span className="flex items-center space-x-1.5 font-medium">
-                    <CheckCircleIcon className="w-4 h-4 text-emerald-500" />
+                  <span className="flex items-center space-x-1.5 px-3 py-1 rounded-lg border"
+                    style={{ backgroundColor: 'var(--vf-surface)', borderColor: 'var(--vf-border)' }}
+                  >
+                    <CheckCircleIcon className="w-3.5 h-3.5 text-emerald-500" />
                     <span>Hierarki Otoritas Tier 1-3</span>
                   </span>
-                  <span className="opacity-40">&bull;</span>
-                  <span className="flex items-center space-x-1.5 font-medium">
-                    <CheckCircleIcon className="w-4 h-4 text-emerald-500" />
-                    <span>Multi-Strategy Article Extractor</span>
+                  <span className="flex items-center space-x-1.5 px-3 py-1 rounded-lg border"
+                    style={{ backgroundColor: 'var(--vf-surface)', borderColor: 'var(--vf-border)' }}
+                  >
+                    <CheckCircleIcon className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>Multi-Strategy Extractor</span>
                   </span>
-                  <span className="opacity-40">&bull;</span>
-                  <span className="flex items-center space-x-1.5 font-medium">
-                    <CheckCircleIcon className="w-4 h-4 text-emerald-500" />
-                    <span>Tingkat Keyakinan Terhitung</span>
+                  <span className="flex items-center space-x-1.5 px-3 py-1 rounded-lg border"
+                    style={{ backgroundColor: 'var(--vf-surface)', borderColor: 'var(--vf-border)' }}
+                  >
+                    <CheckCircleIcon className="w-3.5 h-3.5 text-sky-500" />
+                    <span>Keyakinan Terhitung Transparan</span>
                   </span>
                 </div>
               </div>

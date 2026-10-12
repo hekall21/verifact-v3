@@ -16,7 +16,7 @@
  */
 
 import React, { useState } from 'react';
-import { ExternalLinkIcon, ShieldIcon, CheckCircleIcon, FileTextIcon, PhoneIcon, CreditCardIcon, AlertTriangleIcon } from '../common/Icons.jsx';
+import { ExternalLinkIcon, ShieldIcon, CheckCircleIcon, FileTextIcon, PhoneIcon, CreditCardIcon, AlertTriangleIcon, InfoIcon } from '../common/Icons.jsx';
 import { t } from '../../i18n/index.js';
 
 export const OFFICIAL_PORTALS = [
@@ -127,7 +127,7 @@ export function OfficialReportingHub({ lang = 'id' }) {
       {/* Mandatory Transparency Notice Banner */}
       <div className="rounded-2xl p-4 sm:p-5 border bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200">
         <div className="flex items-start gap-3">
-          <span className="text-xl shrink-0 mt-0.5">ℹ️</span>
+          <InfoIcon className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
           <div className="space-y-1 text-xs sm:text-sm leading-relaxed">
             <h4 className="font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
               Pernyataan Integritas & Transparansi

@@ -91,11 +91,7 @@ export function PerplexitySourcePanel({ sources = [], lang = 'id' }) {
 
   return (
     <div
-      className="p-5 sm:p-6 rounded-2xl border shadow-sm space-y-4 transition-all"
-      style={{
-        backgroundColor: 'var(--vf-surface)',
-        borderColor: 'var(--vf-border)',
-      }}
+      className="p-5 sm:p-6 rounded-2xl vf-card space-y-4 transition-all"
     >
       {/* Header Panel */}
       <div className="flex items-center justify-between">

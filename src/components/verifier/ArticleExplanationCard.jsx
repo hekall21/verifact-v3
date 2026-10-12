@@ -68,7 +68,7 @@ export function ArticleExplanationCard({ sourceSummary, articleExplanation, lang
             }}
           >
             <BookOpenIcon className="w-3.5 h-3.5" />
-            <span>{lang === 'id' ? 'Uraian Isi Berita (§9)' : 'Article Explanation (§9)'}</span>
+            <span>{lang === 'id' ? 'Uraian Isi Berita' : 'Article Explanation'}</span>
           </button>
 
           <button
@@ -83,7 +83,7 @@ export function ArticleExplanationCard({ sourceSummary, articleExplanation, lang
             }}
           >
             <FileTextIcon className="w-3.5 h-3.5" />
-            <span>{lang === 'id' ? 'Ringkasan Sumber (§8)' : 'Source Summary (§8)'}</span>
+            <span>{lang === 'id' ? 'Ringkasan Sumber' : 'Source Summary'}</span>
           </button>
         </div>
 

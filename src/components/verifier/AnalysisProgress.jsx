@@ -1,21 +1,8 @@
 /**
  * src/components/verifier/AnalysisProgress.jsx
  *
- * VeriFact ID 4.2 — Pipeline State Machine Progress UI
- *
- * Memisahkan secara tegas antara (§4 & §5):
- * - KEMAJUAN PROSES ANALISIS (Pipeline Progress: 1 s.d. 7 Tahap)
- * - TINGKAT KEYAKINAN HASIL (Confidence Score: 0 s.d. 100%)
- * - VERDICT (Status Kesimpulan Akhir)
- *
- * 7 Tahap Pipeline Aktual:
- * 1. Mengenali format masukan
- * 2. Mengambil sumber / validasi tautan
- * 3. Membaca isi dan metadata artikel
- * 4. Mengekstrak klaim atomik
- * 5. Mencari bukti dari multi-provider (Support & Refute)
- * 6. Membandingkan bukti & kluster independensi
- * 7. Menyusun kesimpulan & tingkat keyakinan
+ * VeriFact ID 5.0 — Pipeline State Machine Progress UI
+ * Sleek Forensic Pipeline Stepper Design.
  */
 
 import React from 'react';
@@ -34,38 +21,33 @@ export function AnalysisProgress({ currentStep = 1, currentState = '', lang = 'i
 
   const totalSteps = steps.length;
   const progressPercent = Math.min(100, Math.round((currentStep / totalSteps) * 100));
-  const activeStepObj = steps.find((s) => s.num === currentStep) || steps[0];
 
   return (
     <div
-      className="w-full max-w-2xl mx-auto my-8 p-6 sm:p-7 rounded-2xl border shadow-xl vf-fade-up"
-      style={{
-        backgroundColor: 'var(--vf-surface)',
-        borderColor: 'var(--vf-border)',
-      }}
+      className="w-full max-w-2xl mx-auto my-8 p-6 sm:p-7 rounded-2xl vf-card vf-fade-up"
     >
       {/* Header with explicit PIPELINE PROGRESS label */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <span className="text-[10px] font-bold uppercase tracking-wider block text-indigo-500">
-            {lang === 'id' ? 'PIPELINE PROSES AKTIF' : 'ACTIVE PIPELINE'}
+          <span className="text-[10px] font-mono font-bold uppercase tracking-wider block text-indigo-500">
+            {lang === 'id' ? 'PIPELINE AUDIT AKTIF' : 'ACTIVE PIPELINE AUDIT'}
           </span>
-          <h3 className="text-sm font-bold tracking-tight" style={{ color: 'var(--vf-text)' }}>
+          <h3 className="text-base font-bold tracking-tight" style={{ color: 'var(--vf-text)' }}>
             {lang === 'id' ? 'Kemajuan Analisis Fakta' : 'Verification Pipeline Progress'}
           </h3>
         </div>
         <div className="text-right">
-          <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+          <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
             {progressPercent}%
           </span>
-          <span className="text-[11px] block mt-0.5" style={{ color: 'var(--vf-text-muted)' }}>
-            {lang === 'id' ? `Tahap ${currentStep} dari ${totalSteps}` : `Step ${currentStep} of ${totalSteps}`}
+          <span className="text-[11px] font-mono block mt-0.5" style={{ color: 'var(--vf-text-muted)' }}>
+            {lang === 'id' ? `Tahap ${currentStep} / ${totalSteps}` : `Step ${currentStep} / ${totalSteps}`}
           </span>
         </div>
       </div>
 
       {/* Progress Track */}
-      <div className="w-full h-2 rounded-full overflow-hidden mb-6" style={{ backgroundColor: 'var(--vf-surface-muted)' }}>
+      <div className="w-full h-1.5 rounded-full overflow-hidden mb-6" style={{ backgroundColor: 'var(--vf-surface-muted)' }}>
         <div
           className="h-full transition-all duration-300 rounded-full"
           style={{
@@ -100,7 +82,7 @@ export function AnalysisProgress({ currentStep = 1, currentState = '', lang = 'i
                   isDone
                     ? 'bg-emerald-500 text-white'
                     : isCurrent
-                    ? 'border-2 shadow-sm'
+                    ? 'border-2 shadow-xs'
                     : 'border'
                 }`}
                 style={{
@@ -114,12 +96,12 @@ export function AnalysisProgress({ currentStep = 1, currentState = '', lang = 'i
                 ) : isCurrent ? (
                   <RefreshIcon className="w-2.5 h-2.5 vf-spin" />
                 ) : (
-                  st.num
+                  <span className="font-mono text-[9px]">{st.num}</span>
                 )}
               </div>
               <span className="flex-1">{st.label}</span>
               {isCurrent && (
-                <span className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wider animate-pulse">
+                <span className="text-[10px] font-mono font-semibold text-indigo-400 uppercase tracking-wider animate-pulse">
                   {lang === 'id' ? 'Memproses...' : 'Processing...'}
                 </span>
               )}
@@ -129,8 +111,10 @@ export function AnalysisProgress({ currentStep = 1, currentState = '', lang = 'i
       </div>
 
       {/* Clarity Note */}
-      <div className="mt-6 pt-4 border-t text-[11px] leading-relaxed" style={{ borderColor: 'var(--vf-border)', color: 'var(--vf-text-muted)' }}>
-        ℹ️ <em>{lang === 'id' ? 'Catatan: Persentase di atas adalah kemajuan proses pencarian bukti, bukan tingkat kebenaran klaim.' : 'Note: The percentage above represents pipeline execution progress, not claim truth probability.'}</em>
+      <div className="mt-6 pt-4 border-t text-[11px] leading-relaxed font-mono" style={{ borderColor: 'var(--vf-border)', color: 'var(--vf-text-muted)' }}>
+        {lang === 'id'
+          ? 'Catatan Audit: Persentase di atas menunjukkan kemajuan komputasi penelusuran bukti, bukan probabilitas kebenaran klaim.'
+          : 'Audit Note: The percentage above indicates computation progress across evidence providers, not claim veracity score.'}
       </div>
     </div>
   );

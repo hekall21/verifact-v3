@@ -15,47 +15,47 @@
 */
 :root,
 .light {
-  --vf-bg: #f7f8fb;
+  --vf-bg: #f8fafc;
   --vf-bg-elevated: #ffffff;
   --vf-surface: #ffffff;
-  --vf-surface-muted: #f1f4f9;
-  --vf-border: #dde3ec;
-  --vf-border-strong: #c3cddb;
-  --vf-text: #101828;
-  --vf-text-secondary: #475467;
-  --vf-text-muted: #667085;
-  --vf-primary: #0b63c5;
-  --vf-primary-text: #08509f;
-  --vf-accent: #5b4bd6;
-  --vf-fact: #04785d;
-  --vf-partly: #9a5b00;
-  --vf-misleading: #a1500a;
-  --vf-hoax: #bb2036;
-  --vf-unproven: #4a5568;
-  --vf-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px -12px rgba(16, 24, 40, 0.14);
-  --vf-ring: rgba(11, 99, 197, 0.18);
+  --vf-surface-muted: #f1f5f9;
+  --vf-border: rgba(15, 23, 42, 0.08);
+  --vf-border-strong: rgba(15, 23, 42, 0.16);
+  --vf-text: #0f172a;
+  --vf-text-secondary: #475569;
+  --vf-text-muted: #64748b;
+  --vf-primary: #4f46e5;
+  --vf-primary-text: #4338ca;
+  --vf-accent: #0284c7;
+  --vf-fact: #059669;
+  --vf-partly: #d97706;
+  --vf-misleading: #ea580c;
+  --vf-hoax: #dc2626;
+  --vf-unproven: #64748b;
+  --vf-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+  --vf-ring: rgba(79, 70, 229, 0.2);
 }
 
 .dark {
-  --vf-bg: #070b14;
-  --vf-bg-elevated: #0d1424;
-  --vf-surface: #101a2c;
-  --vf-surface-muted: #16233a;
-  --vf-border: #22304a;
-  --vf-border-strong: #33456b;
-  --vf-text: #f2f6fc;
-  --vf-text-secondary: #b3c0d4;
-  --vf-text-muted: #8697b0;
-  --vf-primary: #3aa3f5;
-  --vf-primary-text: #7cc4fb;
-  --vf-accent: #9b8cfb;
-  --vf-fact: #34d399;
-  --vf-partly: #fbbf24;
-  --vf-misleading: #fb923c;
-  --vf-hoax: #f87171;
-  --vf-unproven: #a3b1c6;
-  --vf-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -20px rgba(0, 0, 0, 0.7);
-  --vf-ring: rgba(58, 163, 245, 0.22);
+  --vf-bg: #090a0f;
+  --vf-bg-elevated: #0f121d;
+  --vf-surface: #131724;
+  --vf-surface-muted: #191e30;
+  --vf-border: rgba(255, 255, 255, 0.08);
+  --vf-border-strong: rgba(255, 255, 255, 0.15);
+  --vf-text: #f8fafc;
+  --vf-text-secondary: #94a3b8;
+  --vf-text-muted: #64748b;
+  --vf-primary: #6366f1;
+  --vf-primary-text: #818cf8;
+  --vf-accent: #38bdf8;
+  --vf-fact: #10b981;
+  --vf-partly: #f59e0b;
+  --vf-misleading: #f97316;
+  --vf-hoax: #ef4444;
+  --vf-unproven: #64748b;
+  --vf-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 20px 35px -10px rgba(0, 0, 0, 0.6);
+  --vf-ring: rgba(99, 102, 241, 0.25);
 }
 
 * {
@@ -166,4 +166,32 @@ body {
 .vf-break {
   overflow-wrap: anywhere;
   word-break: normal;
+}
+
+/* Subtle modern background dot grid */
+.vf-grid-bg {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.light .vf-grid-bg {
+  background-image: radial-gradient(rgba(15, 23, 42, 0.05) 1px, transparent 1px);
+}
+
+/* Polished Card Utility */
+.vf-card {
+  background-color: var(--vf-surface);
+  border: 1px solid var(--vf-border);
+  box-shadow: var(--vf-shadow);
+  border-radius: 1rem;
+}
+.dark .vf-card {
+  box-shadow: 0 4px 24px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Glass panel */
+.vf-glass {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background-color: color-mix(in srgb, var(--vf-bg) 80%, transparent);
+  border-bottom: 1px solid var(--vf-border);
 }
