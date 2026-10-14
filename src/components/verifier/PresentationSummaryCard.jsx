@@ -51,7 +51,7 @@ export function PresentationSummaryCard({ result = {}, lang = 'id' }) {
   const confidenceScore = ruleConfidence !== null ? ruleConfidence : (hasAiAgent ? aiAgent.confidenceScore : null);
   const confidenceDisplay =
     confidenceScore !== null
-      ? (ruleConfidence !== null ? `${confidenceScore}%` : `${confidenceScore}% (AI Agent)`)
+      ? `${confidenceScore}%`
       : 'N/A';
 
   // Format Result Label
@@ -258,8 +258,8 @@ export function PresentationSummaryCard({ result = {}, lang = 'id' }) {
               <SparklesIcon className="w-3.5 h-3.5 text-indigo-400" />
               <span>
                 {showTechnicalDetails
-                  ? 'Sembunyikan Laporan Forensik Semantik & Detail Teknis'
-                  : 'Lihat Laporan Forensik Semantik & Detail Teknis (AI Studio Agent)'}
+                  ? (lang === 'id' ? 'Sembunyikan Laporan Forensik Semantik & Detail Teknis' : 'Hide Semantic Forensic & Technical Report')
+                  : (lang === 'id' ? 'Lihat Laporan Forensik Semantik & Detail Teknis' : 'View Semantic Forensic & Technical Report')}
               </span>
             </span>
             <span>{showTechnicalDetails ? '▲' : '▼'}</span>

@@ -43,7 +43,7 @@ export function GeminiAgentCard({
     lang === 'id' ? 'Membaca konten artikel & konteks sumber...' : 'Reading article content & context...',
     lang === 'id' ? 'Menganalisis bias retorika, clickbait, dan emosi...' : 'Analyzing rhetoric bias, clickbait & emotion...',
     lang === 'id' ? 'Menguji dekomposisi klaim atomik & plausibilitas...' : 'Cross-evaluating atomic claims plausibility...',
-    lang === 'id' ? 'Menyusun laporan forensik kecerdasan buatan...' : 'Synthesizing forensic AI report...',
+    lang === 'id' ? 'Menyusun laporan forensik semantik...' : 'Synthesizing forensic semantic report...',
   ];
 
   useEffect(() => {
@@ -81,7 +81,7 @@ export function GeminiAgentCard({
     } catch (err) {
       clearInterval(stepInterval);
       console.error('[GeminiAgentCard Error]', err);
-      setErrorMsg(err.message || 'Gagal menjalankan analisis AI Agent.');
+      setErrorMsg(err.message || (lang === 'id' ? 'Gagal menjalankan analisis forensik.' : 'Failed running forensic analysis.'));
     } finally {
       setLoading(false);
     }
@@ -367,7 +367,9 @@ export function GeminiAgentCard({
       {agentResult.deepClaimAnalysis?.length > 0 && (
         <div className="space-y-3">
           <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--vf-text-muted)' }}>
-            Evaluasi Klaim Spesifik oleh AI Agent ({agentResult.deepClaimAnalysis.length}):
+            {lang === 'id'
+              ? `Evaluasi Forensik Klaim Terperinci (${agentResult.deepClaimAnalysis.length}):`
+              : `Detailed Forensic Claim Evaluation (${agentResult.deepClaimAnalysis.length}):`}
           </h4>
           <div className="space-y-2.5">
             {agentResult.deepClaimAnalysis.map((item, idx) => (

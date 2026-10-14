@@ -769,11 +769,11 @@ Detail: ${buildShareableReportUrl(verificationId || '')}`;
                         ? 'medium'
                         : 'low',
                     factors: [
-                      `Analisis forensik model AI ${activeResult.geminiAgent.modelUsed || 'Gemini Flash'} (${activeResult.geminiAgent.confidenceScore}%)`,
+                      `Analisis forensik semantik (${activeResult.geminiAgent.confidenceScore}%)`,
                       `Evaluasi plausibilitas judul: ${activeResult.geminiAgent.headlineAccuracy?.matchesContent ? 'Sesuai dengan isi berita riil' : 'Perlu diwaspadai'}`,
                       `Tingkat clickbait & framing: ${activeResult.geminiAgent.biasAndRhetoric?.clickbaitRating || 'Rendah'}`,
                     ],
-                    sourceCoverage: 'Tervalidasi AI Agent (Google AI Studio)',
+                    sourceCoverage: 'Tervalidasi Forensik Semantik',
                     primarySourcesCount: 1,
                     independentClustersCount: 1,
                   }

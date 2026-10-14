@@ -4,3 +4,9 @@ dist
 .env.local
 .DS_Store
 *.log
+
+# Academic & Competition Drafts (Protected)
+PAPER_*.md
+*.docx
+*.pptx
+*.pdf
